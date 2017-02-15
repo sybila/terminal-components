@@ -1,2 +1,2 @@
-# terminal-components
+# Terminal Components
 work in progress
