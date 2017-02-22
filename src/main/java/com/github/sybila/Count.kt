@@ -10,20 +10,30 @@ class Count<T: Any>(private val solver: Solver<T>) {
     }
 
     val size: Int
-        get() = data.size
+        get() {
+            synchronized(this) {
+                return data.size
+            }
+        }
 
     private val default = solver.ff
 
-    operator fun get(index: Int): T = if (index < data.size) data[index] else default
+    operator fun get(index: Int): T {
+        synchronized(this) {
+            return if (index < data.size) data[index] else default
+        }
+    }
 
     fun push(params: T) {
-        solver.run {
-            val new = ArrayList<T>()
-            for (i in data.indices) {
-                addOrUnion(new, i, data[i] and params.not())
-                addOrUnion(new, i+1, data[i] and params)
+        synchronized(this) {
+            solver.run {
+                val new = ArrayList<T>()
+                for (i in data.indices) {
+                    addOrUnion(new, i, data[i] and params.not())
+                    addOrUnion(new, i+1, data[i] and params)
+                }
+                this@Count.data = new
             }
-            this@Count.data = new
         }
     }
 

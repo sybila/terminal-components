@@ -103,6 +103,7 @@ fun main(args: Array<String>) {
 
         // basic operations
         val andResult = tautology and customSet
+        //println("andResult is ${andResult}")
         val orResult = contradiction or customSet
         // subtraction is handled by and-not combination
         val empty = customSet and tautology.not()
@@ -145,7 +146,7 @@ fun main(args: Array<String>) {
          */
         //val V_minus_BB = And(wholeStateSpaceOperator, Not(F))
 
-        recursion(wholeStateSpaceOperator)
+        recursionTSCC(wholeStateSpaceOperator)
 
         // This will give you a valid state map with the results
         val reachabilityResults = reachState.compute()
@@ -170,37 +171,55 @@ fun main(args: Array<String>) {
 
         println("Conjunction size: ${andOperator.compute().entries().asSequence().count()}")
         println("Number of terminal components is: ${count}")
-        /*
-        val paramcounts = mutableListOf(tt)
+
+        // TODO: Matko vymaz si tento krasny debbug
+        //println(wholeStateSpaceOperator.compute().prettyPrint())
+        //println(wholeStateSpaceOperator.compute().entries().asSequence().count())
+        //val paramcounts = mutableListOf(tt)
         //paramcounts[0]=9
+        /*
         println(reachBack.compute().prettyPrint())
         for (item in reachBack.compute().entries()) print(item)
         println()
         for (item in reachBack.compute().entries().asSequence()) print(item)
         println()
         for (item in reachBack.compute().entries()) print(item)
-        println() */
-        //val a =
-        //        for (item in reachBack.compute().entries().asSequence()) =(item.second)
-
+        println()
+        var a = contradiction
+        println(a)
+        for (item in reachBack.compute().entries().asSequence()) a = a or (item.second)
+        println(a)
+        a = mutableSetOf(rectangleOf(1.5, 2.0)) or mutableSetOf(rectangleOf(3.0, 4.0))
+        println(a)
         //println("end")
+
+        transitionSystem.tt
+        */
+        println("Number of terminal components for particular parameter space:")
+        paramRecursionTSCC(wholeStateSpaceOperator,Count(transitionSystem))
+
+        // TODO: vytvorit paralelnu verziu
+        // 1, pocitanie worker 1 a worker 2 nezavislo
+        // 2, rozsekat state space a skrz to pocitat fwd a bwd, sync vysledok
+        // 3, verzia kde zistime prinajhorsom dolny odhad
+
     }
 
 }
 
-fun <T: Any> Channel<T>.recursion(op: Operator<T>) {
-    val v= choose(op)               // v is now first state or error
+fun <T: Any> Channel<T>.recursionTSCC(op: Operator<T>) {
+    val v= choose(op)                                               // v is now first state or error
     //println(v.compute().prettyPrint())
-    val F= FWD(v)                   // compute fwd(V,v)
+    val F= FWD(v)                                                   // compute fwd(V,v)
     //println("F: ${F.compute().prettyPrint()}")
-    val B= And(F, BWD(v))           // compute bwd(F,v)
-    val F_minus_B = And(F, Not(B))  // F\B
+    val B= And(F, BWD(v))                                           // compute bwd(F,v) - states reachable from v  and reaching v
+    val F_minus_B = And(F, Not(B))                                  // F\B - states reachable from v but not reaching v
     //println("F_minus_B: ${F_minus_B.compute().prettyPrint()}")
     //println(isResultEmpty(F_minus_B))
     if (!isResultEmpty(F_minus_B))
-        recursion(F_minus_B)
-    val BB=BWD(F)
-    val V_minus_BB = And(op, Not(BB))
+        recursionTSCC(F_minus_B)
+    val BB=BWD(F)                                                   // compute bwd(V,F)
+    val V_minus_BB = And(op, Not(BB))                               // V\BB - states not reaching v
     //println("V_minus_BB: ${V_minus_BB.compute().prettyPrint()}")
     //println(isResultEmpty(V_minus_BB))
     if (!isResultEmpty(V_minus_BB))
@@ -209,31 +228,28 @@ fun <T: Any> Channel<T>.recursion(op: Operator<T>) {
             //println("count= ${count}")
             count +=1
             //println("count= ${count}")
-            recursion(V_minus_BB)
+            recursionTSCC(V_minus_BB)
         }
 }
 
-fun <T: Any> Channel<T>.paramRecursion(op: Operator<T>) {
-    val v= choose(op)               // v is now first state or error
-    //println(v.compute().prettyPrint())
-    val F= FWD(v)                   // compute fwd(V,v)
-    //println("F: ${F.compute().prettyPrint()}")
-    val B= And(F, BWD(v))           // compute bwd(F,v)
-    val F_minus_B = And(F, Not(B))  // F\B
-    //println("F_minus_B: ${F_minus_B.compute().prettyPrint()}")
-    //println(isResultEmpty(F_minus_B))
+fun <T: Any> Channel<T>.paramRecursionTSCC(op: Operator<T>, paramcounts: Count<T>) {
+    val v= choose(op)                                                                        // v is now first state or error!!!!
+    val F= FWD(v)                                                                            // compute fwd(V,v)
+    val B= And(F, BWD(v))                                                                    // compute bwd(F,v) - states reachable from v  and reaching v
+    val F_minus_B = And(F, Not(B))                                                           // F\B - states reachable from v but not reaching v
     if (!isResultEmpty(F_minus_B))
-        paramRecursion(F_minus_B)
-    val BB=BWD(F)
-    val V_minus_BB = And(op, Not(BB))
-    //println("V_minus_BB: ${V_minus_BB.compute().prettyPrint()}")
-    //println(isResultEmpty(V_minus_BB))
+        paramRecursionTSCC(F_minus_B,paramcounts)
+    val BB=BWD(F)                                                                           // compute bwd(V,F)
+    val V_minus_BB = And(op, Not(BB))                                                       // V\BB - states not reaching v
     if (!isResultEmpty(V_minus_BB))
     {
-        //println("tu som")
-        //println("count= ${count}")
-        count +=1
-        //println("count= ${count}")
-        paramRecursion(V_minus_BB)
+        var a = ff
+        for (item in V_minus_BB.compute().entries().asSequence()) a = a or (item.second)    // unite all parametrisation through V_minus_BB
+        paramcounts.push(a)                                                                 // distribute this parametrisation set to count
+        for (i in 0 until paramcounts.size) {                                               // print countTSCC for each parameter set
+            print("${i+1} terminal components:" + paramcounts[i].toString()+"; ")
+        }
+        println()
+        paramRecursionTSCC(V_minus_BB,paramcounts)
     }
 }
