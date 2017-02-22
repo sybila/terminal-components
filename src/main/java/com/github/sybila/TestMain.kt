@@ -79,6 +79,14 @@ fun main(args: Array<String>) {
     //Note that transitionSystem is also a rectangular solver. In order to use it, we have to switch to it's "context" like this:
     transitionSystem.run {
 
+        val c = Count(transitionSystem)
+        println("One component: C1{${c[0]}}")
+        c.push(mutableSetOf(rectangleOf(0.1,0.2)))
+        println("Two components: C1{${c[0]}} C2{${c[1]}}")
+        c.push(mutableSetOf(rectangleOf(0.15,0.25)))
+        println("Three components: C1{${c[0]}} C2{${c[1]}} C3{${c[2]}}")
+        println("Max. number of components: ${c.size}")
+
         // here we can use everything defined in the Solver interface
         val tautology = tt  //constant for full parameter set
         val contradiction = ff //constant for empty parameter set
