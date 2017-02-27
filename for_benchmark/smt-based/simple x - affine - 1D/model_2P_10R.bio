@@ -1,0 +1,7 @@
+VARS: x
+PARAMS: k1,0,2; deg_x,0,2
+
+EQ: x = k1*x - deg_x*x
+
+THRES: x: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+
