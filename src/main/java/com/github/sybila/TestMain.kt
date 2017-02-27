@@ -56,8 +56,9 @@ fun main(args: Array<String>) {
 
     // create a File object that points to the model file
     //val modelFile = File("E:\\Model checking Group\\pithya\\biodivineGUI\\example\\tcbb_model/model_indep.bio")
+    val modelFile = File("E:\\Model checking Group\\terminal-components\\for_benchmark\\enumerative\\repressilators - affine\\2D\\model_2D_1P_10kR.bio")
     //val modelFile = File("E:\\Model checking Group\\terminal-components\\for_benchmark\\enumerative\\repressilators - affine\\4D\\model_4D_1P_10kR.bio")
-    val modelFile = File("E:\\Model checking Group\\terminal-components\\for_benchmark\\enumerative\\repressilators - affine\\3D\\model_3D_1P_8kR.bio")
+    //val modelFile = File("E:\\Model checking Group\\terminal-components\\for_benchmark\\enumerative\\repressilators - affine\\3D\\model_3D_1P_8kR.bio")
 
     // parse the .bio model and compute approximation
     val odeModel = Parser().parse(modelFile).computeApproximation(fast = true, cutToRange = false)
