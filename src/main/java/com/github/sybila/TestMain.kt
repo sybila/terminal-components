@@ -55,6 +55,7 @@ var count = 1
 fun main(args: Array<String>) {
 
     // create a File object that points to the model file
+    val modelFile = File("E:\\Model checking Group\\terminal-components\\for_benchmark\\enumerative\\repressilators - affine\\2D\\model_indep.bio")
     //val modelFile = File("E:\\Model checking Group\\terminal-components\\for_benchmark\\enumerative\\repressilators - affine\\2D\\model_2D_1P_400R.bio")
     //val modelFile = File("E:\\Model checking Group\\terminal-components\\for_benchmark\\enumerative\\repressilators - affine\\2D\\model_2D_1P_10kR.bio")
 
