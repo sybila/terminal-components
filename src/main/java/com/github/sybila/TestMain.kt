@@ -2,12 +2,10 @@ package com.github.sybila
 
 import com.github.sybila.checker.*
 import com.github.sybila.checker.channel.SingletonChannel
-import com.github.sybila.checker.operator.AndOperator
-import com.github.sybila.checker.operator.ComplementOperator
-import com.github.sybila.checker.operator.ExistsUntilOperator
-import com.github.sybila.checker.operator.TrueOperator
+import com.github.sybila.checker.operator.*
 import com.github.sybila.checker.partition.asSingletonPartition
 import com.github.sybila.huctl.DirectionFormula
+import com.github.sybila.ode.generator.LazyStateMap
 import com.github.sybila.ode.generator.NodeEncoder
 import com.github.sybila.ode.generator.rect.Rectangle
 import com.github.sybila.ode.generator.rect.RectangleOdeModel
@@ -16,6 +14,7 @@ import com.github.sybila.ode.model.computeApproximation
 import java.io.File
 
 fun <T: Any> Channel<T>.And(left: Operator<T>, right: Operator<T>) = AndOperator(left, right, this)
+fun <T: Any> Channel<T>.Or(left: Operator<T>, right: Operator<T>) = OrOperator(left, right, this)
 fun <T: Any> Channel<T>.Not(left: Operator<T>) = ComplementOperator(TrueOperator(this), left, this)
 
 fun <T: Any> Channel<T>.FWD(inner: Operator<T>) = ExistsUntilOperator(
@@ -57,7 +56,7 @@ fun main(args: Array<String>) {
     // create a File object that points to the model file
     //val modelFile = File("E:\\Model checking Group\\terminal-components\\for_benchmark\\enumerative\\repressilators - affine\\2D\\model_indep.bio")
     //val modelFile = File("E:\\Model checking Group\\terminal-components\\for_benchmark\\enumerative\\repressilators - affine\\2D\\model_2D_1P_400R.bio")
-    val modelFile = File("E:\\Model checking Group\\terminal-components\\for_benchmark\\enumerative\\repressilators - affine\\2D\\model_2D_1P_10kR.bio")
+    //val modelFile = File("E:\\Model checking Group\\terminal-components\\for_benchmark\\enumerative\\repressilators - affine\\2D\\model_2D_1P_10kR.bio")
 
     //val modelFile = File("E:\\Model checking Group\\terminal-components\\for_benchmark\\enumerative\\repressilators - affine\\4D\\model_4D_1P_10kR.bio")
     //val modelFile = File("E:\\Model checking Group\\terminal-components\\for_benchmark\\enumerative\\repressilators - affine\\3D\\model_3D_1P_8kR.bio")
@@ -263,26 +262,34 @@ fun <T: Any> Channel<T>.recursionTSCC(op: Operator<T>) {
 }
 
 fun <T: Any> Channel<T>.paramRecursionTSCC(op: Operator<T>, paramcounts: Count<T>) {
-    val v= choose(op)                                                                        // v is now first state or error!!!!
-    println("Some state: ${v.compute().entries().asSequence().first()}")
-    val F= And(op, FWD(v))                                                                            // compute fwd(V,v)
-    println("F: ${F.compute().entries().asSequence().toList()}")
-    val B= And(F, BWD(v))
-    println("B: ${B.compute().entries().asSequence().toList()}")
-    // compute bwd(F,v) - states reachable from v  and reaching v
-    val F_minus_B = And(F, Not(B))                                                           // F\B - states reachable from v but not reaching v
-    if (!isResultEmpty(F_minus_B))
-        paramRecursionTSCC(F_minus_B,paramcounts)
-    val BB= And(op, BWD(F))
-    println("B': ${BB.compute().entries().asSequence().toList()}")// compute bwd(V,F)
-    val V_minus_BB = And(op, Not(BB))                                                       // V\BB - states not reaching v
-    println("V\\B': ${V_minus_BB.compute().entries().asSequence().toList()}")
-    if (!isResultEmpty(V_minus_BB))
-    {
-        var a = ff
-        for (item in V_minus_BB.compute().entries().asSequence()) a = a or (item.second)    // unite all parametrisation through V_minus_BB
-        println("Pushing $a")
-        paramcounts.push(a)                                                                 // distribute this parametrisation set to count
-        paramRecursionTSCC(V_minus_BB,paramcounts)
+    var universe = op
+    while (!isResultEmpty(universe)) {
+        val v = choose(universe)                                                                        // v is now first state or error!!!!
+        val vState = v.compute().entries().asSequence().first()
+        val F = And(universe, FWD(v))                                                                            // compute fwd(V,v)
+        val B = And(F, BWD(v))
+        // compute bwd(F,v) - states reachable from v  and reaching v
+        val F_minus_B = And(F, Not(B))                                                           // F\B - states reachable from v but not reaching v
+        if (!isResultEmpty(F_minus_B))
+            paramRecursionTSCC(F_minus_B,paramcounts)
+        val BB = And(universe, BWD(F))
+        val V_minus_BBfull = And(universe, Not(BB)).compute()
+        val V_minus_BB = ExplicitOperator(LazyStateMap(stateCount, ff) { V_minus_BBfull[it] and vState.second })                                                      // V\BB - states not reaching v
+        if (!isResultEmpty(V_minus_BB))
+        {
+            var a = ff
+            for (item in V_minus_BB.compute().entries().asSequence()) a = a or (item.second)    // unite all parametrisation through V_minus_BB
+            paramcounts.push(a)                                                                 // distribute this parametrisation set to count
+            paramRecursionTSCC(V_minus_BB,paramcounts)
+        }
+        universe = And(universe, Not(Or(F_minus_B, BB)))
     }
+}
+
+class ExplicitOperator<out Params : Any>(
+        private val data: StateMap<Params>
+) : Operator<Params> {
+
+    override fun compute(): StateMap<Params> = data
+
 }
