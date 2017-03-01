@@ -4,7 +4,7 @@ Results of some model in version of 27/02/2017
 Model of 2-state oscilator
 
 
-for_benchmark\\enumerative\\repressilators - affine\\2D\\model_indep.bio
+for_benchmark\\enumerative\\pRB vs E2F1 - tcbb - multi-affine\\model_indep.bio
 Number of terminal components is: 2
 1 terminal components:[[0.001, 0.11844597631044665], [0.1201539840018251, 1.0]]; 2 terminal components:[[0.11844597631044665, 0.1201539840018251]]; 
 -----------------------------------------------------------------------------------------------------------------------
