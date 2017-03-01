@@ -1,16 +1,16 @@
 package com.github.sybila
 
-import com.github.sybila.checker.Channel
-import com.github.sybila.checker.Operator
-import com.github.sybila.checker.Partition
-import com.github.sybila.checker.StateMap
+import com.github.sybila.checker.*
 import com.github.sybila.checker.channel.SingletonChannel
-import com.github.sybila.checker.operator.*
+import com.github.sybila.checker.operator.AndOperator
+import com.github.sybila.checker.operator.ComplementOperator
+import com.github.sybila.checker.operator.ExistsUntilOperator
+import com.github.sybila.checker.operator.TrueOperator
 import com.github.sybila.checker.partition.asSingletonPartition
 import com.github.sybila.huctl.DirectionFormula
 import com.github.sybila.ode.generator.NodeEncoder
+import com.github.sybila.ode.generator.rect.Rectangle
 import com.github.sybila.ode.generator.rect.RectangleOdeModel
-import com.github.sybila.ode.generator.rect.rectangleOf
 import com.github.sybila.ode.model.Parser
 import com.github.sybila.ode.model.computeApproximation
 import java.io.File
@@ -63,7 +63,7 @@ fun main(args: Array<String>) {
     //val modelFile = File("E:\\Model checking Group\\terminal-components\\for_benchmark\\enumerative\\repressilators - affine\\3D\\model_3D_1P_8kR.bio")
 
     // parse the .bio model and compute approximation
-    val odeModel = Parser().parse(modelFile).computeApproximation(fast = true, cutToRange = false)
+    val odeModel = Parser().parse(modelFile).computeApproximation(fast = false, cutToRange = false)
 
     // Create the transition system as required by the EU operator
     // .asSingletonPartition will take original model and turn it into a system "partitioned" into one partition
@@ -84,14 +84,28 @@ fun main(args: Array<String>) {
     //Note that transitionSystem is also a rectangular solver. In order to use it, we have to switch to it's "context" like this:
     transitionSystem.run {
 
-        val c = Count(transitionSystem)
+        fun Iterator<Transition<MutableSet<Rectangle>>>.asStates() = this.asSequence().map { it.target }.toList().sorted()
+
+
+        /*val states = (0..24).toList()
+        println("Predecessors (past): ")
+        states.forEach {
+            println("$it " + it.predecessors(false).asStates())
+        }
+        println("Successors (future): ")
+        states.forEach {
+            println("$it " + it.successors(true).asStates())
+        }*/
+
+        /*val c = Count(transitionSystem)
         println("One component: C1{${c[0]}}")
         c.push(mutableSetOf(rectangleOf(0.1,0.2)))
         println("Two components: C1{${c[0]}} C2{${c[1]}}")
         c.push(mutableSetOf(rectangleOf(0.15,0.25)))
         println("Three components: C1{${c[0]}} C2{${c[1]}} C3{${c[2]}}")
-        println("Max. number of components: ${c.size}")
+        println("Max. number of components: ${c.size}")*/
 
+        /*
         // here we can use everything defined in the Solver interface
         val tautology = tt  //constant for full parameter set
         val contradiction = ff //constant for empty parameter set
@@ -125,19 +139,20 @@ fun main(args: Array<String>) {
 
         // State map provides basic get and contains operations (using the state ID) but is considered immutable, so no set
         println("Value for $stateId is ${singleStateMap[stateId]} but for ${stateId + 1} should be empty: ${singleStateMap[stateId + 1].isEmpty()} ")
+        */
 
         // Operator that will compute backwards reachability from stateId.
         // Change time flow to compute forward reachability.
         // fwd(V,S)== AndOperator(V, ExistsUntilOperator(false,DirectionFormula.Atom.True,false,null,S,transitionSystem), transitionSystem)
         // bwd(V,S)== AndOperator(V, ExistsUntilOperator(true,DirectionFormula.Atom.True,false,null,S,transitionSystem), transitionSystem)
-        val reachState = ExistsUntilOperator(
+        /*val reachState = ExistsUntilOperator(
                 timeFlow = true,    // true - future, false - past
                 direction = DirectionFormula.Atom.True, // leave this at True
                 weak = false,   // leave this at false
                 pathOp = null,  // leave this null
                 reach = ReferenceOperator(stateId, transitionSystem),   // Reference to a single state
                 partition = transitionSystem
-        )
+        )*/
 
         /*
         val V = wholeStateSpaceOperator
@@ -151,7 +166,7 @@ fun main(args: Array<String>) {
          */
         //val V_minus_BB = And(wholeStateSpaceOperator, Not(F))
 
-        recursionTSCC(wholeStateSpaceOperator)
+       /* recursionTSCC(wholeStateSpaceOperator)
 
         // This will give you a valid state map with the results
         val reachabilityResults = reachState.compute()
@@ -175,7 +190,7 @@ fun main(args: Array<String>) {
         val andOperator = AndOperator(reachState, reachBack, transitionSystem)
 
         println("Conjunction size: ${andOperator.compute().entries().asSequence().count()}")
-        println("Number of terminal components is: ${count}")
+        println("Number of terminal components is: ${count}")*/
 
         // TODO: Matko vymaz si tento krasny debbug
         //println(wholeStateSpaceOperator.compute().prettyPrint())
@@ -201,7 +216,17 @@ fun main(args: Array<String>) {
         transitionSystem.tt
         */
         println("Number of terminal components for particular parameter space:")
-        paramRecursionTSCC(wholeStateSpaceOperator,Count(transitionSystem))
+        val counter = Count(transitionSystem)
+
+        for (i in 0 until counter.size) {                                               // print countTSCC for each parameter set
+            println("${i+1} terminal components: ${counter[i]}")
+        }
+
+        paramRecursionTSCC(TrueOperator(this), counter)
+
+        for (i in 0 until counter.size) {                                               // print countTSCC for each parameter set
+            println("${i+1} terminal components: ${counter[i]}")
+        }
 
         // TODO: vytvorit paralelnu verziu
         // 1, pocitanie worker 1 a worker 2 nezavislo
@@ -239,22 +264,25 @@ fun <T: Any> Channel<T>.recursionTSCC(op: Operator<T>) {
 
 fun <T: Any> Channel<T>.paramRecursionTSCC(op: Operator<T>, paramcounts: Count<T>) {
     val v= choose(op)                                                                        // v is now first state or error!!!!
-    val F= FWD(v)                                                                            // compute fwd(V,v)
-    val B= And(F, BWD(v))                                                                    // compute bwd(F,v) - states reachable from v  and reaching v
+    println("Some state: ${v.compute().entries().asSequence().first()}")
+    val F= And(op, FWD(v))                                                                            // compute fwd(V,v)
+    println("F: ${F.compute().entries().asSequence().toList()}")
+    val B= And(F, BWD(v))
+    println("B: ${B.compute().entries().asSequence().toList()}")
+    // compute bwd(F,v) - states reachable from v  and reaching v
     val F_minus_B = And(F, Not(B))                                                           // F\B - states reachable from v but not reaching v
     if (!isResultEmpty(F_minus_B))
         paramRecursionTSCC(F_minus_B,paramcounts)
-    val BB=BWD(F)                                                                           // compute bwd(V,F)
+    val BB= And(op, BWD(F))
+    println("B': ${BB.compute().entries().asSequence().toList()}")// compute bwd(V,F)
     val V_minus_BB = And(op, Not(BB))                                                       // V\BB - states not reaching v
+    println("V\\B': ${V_minus_BB.compute().entries().asSequence().toList()}")
     if (!isResultEmpty(V_minus_BB))
     {
         var a = ff
         for (item in V_minus_BB.compute().entries().asSequence()) a = a or (item.second)    // unite all parametrisation through V_minus_BB
+        println("Pushing $a")
         paramcounts.push(a)                                                                 // distribute this parametrisation set to count
-        for (i in 0 until paramcounts.size) {                                               // print countTSCC for each parameter set
-            print("${i+1} terminal components:" + paramcounts[i].toString()+"; ")
-        }
-        println()
         paramRecursionTSCC(V_minus_BB,paramcounts)
     }
 }
