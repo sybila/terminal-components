@@ -38,12 +38,10 @@ class Count<T: Any>(private val solver: Solver<T>) {
     }
 
     private fun Solver<T>.addOrUnion(data: ArrayList<T>, index: Int, params: T) {
-        if (params.isSat()) {
-            if (index < data.size) {
-                data[index] = (data[index] or params)
-            } else {
-                data.add(params)
-            }
+        if (index < data.size) {
+            data[index] = (data[index] or params)
+        } else {
+            data.add(params)
         }
     }
 
