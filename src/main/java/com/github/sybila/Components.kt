@@ -113,7 +113,11 @@ fun main(args: Array<String>) {
 
     val modelFile = File(args[0])
 
+    println("Computing model approximation...")
+
     val odeModel = Parser().parse(modelFile).computeApproximation(fast = false, cutToRange = false)
+
+    println("Approximation done. Starting component search...")
 
     val transitionSystem = SingletonChannel(RectangleOdeModel(odeModel, createSelfLoops = true).asSingletonPartition())
 
@@ -123,6 +127,10 @@ fun main(args: Array<String>) {
 
         // compute results
         paramRecursionTSCC(TrueOperator(this), counter)
+
+        println("Component search done.")
+        println("Max number of components: ${counter.max}.")
+        println("Min number of components: ${counter.min}.")
 
         for (i in 0 until counter.size) {                                               // print countTSCC for each parameter set
             println("${i+1} terminal components: ${counter[i]}")

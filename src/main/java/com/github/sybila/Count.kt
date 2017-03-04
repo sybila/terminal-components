@@ -9,7 +9,7 @@ import java.util.*
  */
 class Count<T: Any>(private val solver: Solver<T>) {
 
-    private var data = ArrayList<T>().apply {
+    private var data: List<T> = ArrayList<T>().apply {
         this.add(solver.tt)
     }
 
@@ -17,6 +17,22 @@ class Count<T: Any>(private val solver: Solver<T>) {
         get() {
             synchronized(this) {
                 return data.size
+            }
+        }
+
+
+    val max: Int
+        get() {
+            synchronized(this) {
+                return data.indexOfLast { solver.run { it.isSat() } } + 1
+            }
+        }
+
+
+    val min: Int
+        get() {
+            synchronized(this) {
+                return data.indexOfFirst { solver.run { it.isSat() } } + 1
             }
         }
 
@@ -36,7 +52,7 @@ class Count<T: Any>(private val solver: Solver<T>) {
                     addOrUnion(new, i, data[i] and params.not())
                     addOrUnion(new, i+1, data[i] and params)
                 }
-                this@Count.data = new
+                this@Count.data = new.dropLastWhile { it.isNotSat() }
             }
         }
     }

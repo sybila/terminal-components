@@ -19,7 +19,7 @@ apply plugin: 'application'
 
 group = "com.github.sybila"
 mainClassName = "com.github.sybila.ComponentsKt"
-version = '0.0.1'
+version = '0.1.0'
 
 
 // In this section you declare where to find the dependencies of your project
@@ -35,6 +35,7 @@ repositories {
 dependencies {
     // ODE and CTL modules do not propagate this dependency, because it's part of the plugin
     compile 'org.antlr:antlr4-runtime:4.6'
+    compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     // BioDivine modules.
     compile 'com.github.sybila:ode-generator:1.1.3'
     compile 'com.github.sybila:ctl-model-checker:2.1.2'
