@@ -3,6 +3,10 @@ package com.github.sybila
 import com.github.sybila.checker.Solver
 import java.util.*
 
+/**
+ * Count is a special data structure that allows us to keep the number of components
+ * for specific colors.
+ */
 class Count<T: Any>(private val solver: Solver<T>) {
 
     private var data = ArrayList<T>().apply {

@@ -1,6 +1,6 @@
 //initialize Kotlin build plugin
 buildscript {
-    ext.kotlin_version = '1.0.6'
+    ext.kotlin_version = '1.1.0'
 
     repositories {
         jcenter()
@@ -15,8 +15,10 @@ buildscript {
 // Apply the java plugin to add support for Java
 apply plugin: 'java'
 apply plugin: 'kotlin'
+apply plugin: 'application'
 
 group = "com.github.sybila"
+mainClassName = "com.github.sybila.ComponentsKt"
 version = '0.0.1'
 
 
@@ -36,4 +38,8 @@ dependencies {
     // BioDivine modules.
     compile 'com.github.sybila:ode-generator:1.1.3'
     compile 'com.github.sybila:ctl-model-checker:2.1.2'
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '3.4.1'
 }
