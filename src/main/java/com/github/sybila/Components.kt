@@ -2,13 +2,13 @@ package com.github.sybila
 
 import com.github.sybila.checker.Channel
 import com.github.sybila.checker.Operator
-import com.github.sybila.checker.Partition
 import com.github.sybila.checker.StateMap
 import com.github.sybila.checker.channel.SingletonChannel
 import com.github.sybila.checker.operator.*
 import com.github.sybila.checker.partition.asSingletonPartition
 import com.github.sybila.huctl.DirectionFormula
 import com.github.sybila.ode.generator.LazyStateMap
+import com.github.sybila.ode.generator.rect.Rectangle
 import com.github.sybila.ode.generator.rect.RectangleOdeModel
 import com.github.sybila.ode.model.Parser
 import com.github.sybila.ode.model.computeApproximation
@@ -59,8 +59,21 @@ class ExplicitOperator<out Params : Any>(
 fun <T: Any> Channel<T>.isResultEmpty(op: Operator<T>) = op.compute().entries().asSequence().all { it.second.isNotSat() }
 
 // find first non-empty state in operator results and return is lifted to an operator
-fun <T: Any> Channel<T>.choose(op: Operator<T>): Pair<Int, T> = op.compute().entries().asSequence()
-        .first { it.second.isSat() }
+fun <T: Any> Channel<T>.choose(op: Operator<T>): Pair<Int, T> {
+    var max: Pair<Int, T>? = null
+    var maxCovered: Double = 0.0
+    op.compute().entries().forEach { (state, p) ->
+        val params = p as MutableSet<Rectangle>
+        val covered = params.fold(0.0) { acc, rect ->
+            acc + rect.asIntervals().map { Math.abs(it[1] - it[0]) }.fold(1.0) { acc, dim -> acc * dim }
+        }
+        if (covered > maxCovered) {
+            max = state to p
+            maxCovered = covered
+        }
+    }
+    return max!!
+}
 
 // ----------------------- MAIN ALGORITHM -------------------------------------
 
