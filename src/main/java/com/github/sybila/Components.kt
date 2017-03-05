@@ -13,6 +13,10 @@ import com.github.sybila.ode.generator.rect.RectangleOdeModel
 import com.github.sybila.ode.model.Parser
 import com.github.sybila.ode.model.computeApproximation
 import java.io.File
+import java.util.*
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.atomic.AtomicLong
 
 // --------------------- GENERAL HELPER FUNCTIONS --------------------------
 
@@ -77,6 +81,10 @@ fun <T: Any> Channel<T>.choose(op: Operator<T>): Pair<Int, T> {
 
 // ----------------------- MAIN ALGORITHM -------------------------------------
 
+private val executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
+//private val executor = Executors.newFixedThreadPool(2)
+private val pending = ArrayList<Future<*>>()
+
 // This is the generic version of the terminal ssc algorithm:
 fun <T: Any> Channel<T>.paramRecursionTSCC(op: Operator<T>, paramCounts: Count<T>) {
     var universe = op
@@ -92,7 +100,7 @@ fun <T: Any> Channel<T>.paramRecursionTSCC(op: Operator<T>, paramCounts: Count<T
         val F_minus_B = And(F, Not(B))
 
         if (!isResultEmpty(F_minus_B)) {
-            paramRecursionTSCC(F_minus_B, paramCounts)
+            startAction(F_minus_B, paramCounts)
         }
 
         // BB - B' - All valid predecessors of F
@@ -112,12 +120,51 @@ fun <T: Any> Channel<T>.paramRecursionTSCC(op: Operator<T>, paramCounts: Count<T
 
         if (componentParams.isSat()) {
             paramCounts.push(componentParams)
-            paramRecursionTSCC(V_minus_BB, paramCounts)
+            startAction(V_minus_BB, paramCounts)
         }
 
         // cut the two processed areas out of the universe and repeat
         universe = And(universe, Not(Or(F_minus_B, BB)))
     }
+}
+
+private var lastPrint = AtomicLong(System.currentTimeMillis())
+
+fun printActionProgress() {
+    val last = lastPrint.get()
+    if (System.currentTimeMillis() > last + 3000 && lastPrint.compareAndSet(last, System.currentTimeMillis())) {
+        synchronized(pending) {
+            println("Action queue: ${pending.size}")
+        }
+    }
+}
+
+fun <T: Any> Channel<T>.startAction(states: Operator<T>, paramCounts: Count<T>) {
+    // start new task in an executor and save it into pending
+    synchronized(pending) {
+        val future = executor.submit {
+            paramRecursionTSCC(states, paramCounts)
+        }
+        pending.add(future)
+        printActionProgress()
+    }
+}
+
+fun blockWhilePending() {
+    // go through the pending tasks one by one, removing the ones that are
+    // completed and terminating when all tasks are done
+    do {
+        val first = synchronized(pending) {
+            pending.firstOrNull()
+        }
+        first?.let {
+            it.get()
+            synchronized(pending) {
+                pending.remove(it)
+            }
+            printActionProgress()
+        }
+    } while (first != null)
 }
 
 // ---------------------- PLUMBING TO PUT IT ALL TOGETHER ------------------------
@@ -130,16 +177,34 @@ fun main(args: Array<String>) {
 
     val odeModel = Parser().parse(modelFile).computeApproximation(fast = false, cutToRange = false)
 
-    println("Approximation done. Starting component search...")
+    println("Approximation done. Compute transition system...")
 
     val transitionSystem = SingletonChannel(RectangleOdeModel(odeModel, createSelfLoops = true).asSingletonPartition())
 
     // enter transition system context
     transitionSystem.run {
+
+        // transition system is not synchronized, however, it is read-safe.
+        // hence if we pre-compute all transitions before actually starting the algorithm,
+        // we can safely perform operations in parallel.
+        (0 until stateCount).forEach {
+            it.predecessors(true)
+            it.predecessors(false)
+            it.successors(true)
+            it.successors(false)
+        }
+
+        println("Transition system computed. Starting component search...")
+
+        // counter is synchronized
         val counter = Count(this)
 
         // compute results
-        paramRecursionTSCC(TrueOperator(this), counter)
+        val allStates = TrueOperator(this)
+        startAction(allStates, counter)
+
+        blockWhilePending()
+        executor.shutdown()
 
         println("Component search done.")
         println("Max number of components: ${counter.max}.")
