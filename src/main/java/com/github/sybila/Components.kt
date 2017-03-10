@@ -69,113 +69,121 @@ class ExplicitOperator<out Params : Any>(
 // check if results computed by given operator is empty
 fun <T: Any> Channel<T>.isResultEmpty(op: Operator<T>) = op.compute().entries().asSequence().all { it.second.isNotSat() }
 
-// find first non-empty state in operator results and return is lifted to an operator
-fun <T: Any> Channel<T>.choose(op: Operator<T>): Pair<Int, T> {
-    var max: Pair<Int, T>? = null
-    var maxCovered: Double = 0.0
-    op.compute().entries().forEach { (state, p) ->
-        val params = p as MutableSet<Rectangle>
-        val covered = params.fold(0.0) { acc, rect ->
-            acc + rect.asIntervals().map { Math.abs(it[1] - it[0]) }.fold(1.0) { acc, dim -> acc * dim }
-        }
-        if (covered > maxCovered) {
-            max = state to p
-            maxCovered = covered
-        }
-    }
-    return max!!
-}
-
 // ----------------------- MAIN ALGORITHM -------------------------------------
 
-private val executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
-//private val executor = Executors.newFixedThreadPool(2)
-private val pending = ArrayList<Future<*>>()
+class Algorithm(
+        parallelism: Int,
+        private val useHeuristics: Boolean
+) {
 
-// This is the generic version of the terminal ssc algorithm:
-fun <T: Any> Channel<T>.paramRecursionTSCC(op: Operator<T>, paramCounts: Count<T>) {
-    var universe = op
-    while (!isResultEmpty(universe)) {
-        val (v, vParams) = choose(universe)    // first non empty state (or error if empty)
+    val executor = Executors.newFixedThreadPool(parallelism)!!
+    //private val executor = Executors.newFixedThreadPool(2)
+    private val pending = ArrayList<Future<*>>()
 
-        // limit that restricts the whole state space to parameters associated with v
-        val limit = ExplicitOperator(RangeStateMap(0 until stateCount, value = vParams, default = ff))
+    // This is the generic version of the terminal ssc algorithm:
+    fun <T: Any> Channel<T>.paramRecursionTSCC(op: Operator<T>, paramCounts: Count<T>) {
+        var universe = op
+        while (!isResultEmpty(universe)) {
+            val (v, vParams) = if (useHeuristics) choose(universe) else chooseSimple(universe)
 
-        // operator for single state v
-        val vOp = ExplicitOperator(v.asStateMap(vParams))
+            // limit that restricts the whole state space to parameters associated with v
+            val limit = ExplicitOperator(RangeStateMap(0 until stateCount, value = vParams, default = ff))
 
-        // F - states reachable from v
-        val F = And(universe, FWD(vOp))
-        // B - states that can reach v but are also reachable from v
-        val B = And(F, BWD(vOp))
-        // F\B - states reachable from v but not reaching v - i.e. a potentially new terminal component
-        // will be empty if v is on a terminal cycle
-        val F_minus_B = And(F, Not(B))
+            // operator for single state v
+            val vOp = ExplicitOperator(v.asStateMap(vParams))
 
-        if (!isResultEmpty(F_minus_B)) {
-            startAction(F_minus_B, paramCounts)
-        }
+            // F - states reachable from v
+            val F = And(universe, FWD(vOp))
+            // B - states that can reach v but are also reachable from v
+            val B = And(F, BWD(vOp))
+            // F\B - states reachable from v but not reaching v - i.e. a potentially new terminal component
+            // will be empty if v is on a terminal cycle
+            val F_minus_B = And(F, Not(B))
 
-        // BB - B' - All valid predecessors of F
-        val BB = And(universe, BWD(F))
-
-        // V \ BB restricted to the parameters of state v
-        val V_minus_BB = And(And(universe, limit), Not(BB))
-
-        // compute parameter union across the potential new component
-        val componentParams = V_minus_BB.compute().entries().asSequence().fold(ff) { acc, (_, params) ->
-            acc or params
-        }
-
-        if (componentParams.isSat()) {
-            paramCounts.push(componentParams)
-            startAction(V_minus_BB, paramCounts)
-        }
-
-        // cut the processed area out of the universe and repeat
-        universe = And(universe, Not(limit))
-    }
-}
-
-private var lastPrint = AtomicLong(System.currentTimeMillis())
-
-fun printActionProgress() {
-    val last = lastPrint.get()
-    if (System.currentTimeMillis() > last + 3000 && lastPrint.compareAndSet(last, System.currentTimeMillis())) {
-        synchronized(pending) {
-            println("Action queue: ${pending.size}")
-        }
-    }
-}
-
-fun <T: Any> Channel<T>.startAction(states: Operator<T>, paramCounts: Count<T>) {
-    // start new task in an executor and save it into pending
-    synchronized(pending) {
-        val future = executor.submit {
-            paramRecursionTSCC(states, paramCounts)
-        }
-        pending.add(future)
-        printActionProgress()
-    }
-}
-
-fun blockWhilePending() {
-    // go through the pending tasks one by one, removing the ones that are
-    // completed and terminating when all tasks are done
-    do {
-        val first = synchronized(pending) {
-            pending.firstOrNull()
-        }
-        first?.let {
-            it.get()
-            synchronized(pending) {
-                pending.remove(it)
+            if (!isResultEmpty(F_minus_B)) {
+                startAction(F_minus_B, paramCounts)
             }
+
+            // BB - B' - All valid predecessors of F
+            val BB = And(universe, BWD(F))
+
+            // V \ BB restricted to the parameters of state v
+            val V_minus_BB = And(And(universe, limit), Not(BB))
+
+            // compute parameter union across the potential new component
+            val componentParams = V_minus_BB.compute().entries().asSequence().fold(ff) { acc, (_, params) ->
+                acc or params
+            }
+
+            if (componentParams.isSat()) {
+                paramCounts.push(componentParams)
+                startAction(V_minus_BB, paramCounts)
+            }
+
+            // cut the processed area out of the universe and repeat
+            universe = And(universe, Not(limit))
+        }
+    }
+
+    private var lastPrint = AtomicLong(System.currentTimeMillis())
+
+    fun printActionProgress() {
+        val last = lastPrint.get()
+        if (System.currentTimeMillis() > last + 3000 && lastPrint.compareAndSet(last, System.currentTimeMillis())) {
+            synchronized(pending) {
+                println("Action queue: ${pending.size}")
+            }
+        }
+    }
+
+    fun <T: Any> Channel<T>.startAction(states: Operator<T>, paramCounts: Count<T>) {
+        // start new task in an executor and save it into pending
+        synchronized(pending) {
+            val future = executor.submit {
+                paramRecursionTSCC(states, paramCounts)
+            }
+            pending.add(future)
             printActionProgress()
         }
-    } while (first != null)
-}
+    }
 
+    fun blockWhilePending() {
+        // go through the pending tasks one by one, removing the ones that are
+        // completed and terminating when all tasks are done
+        do {
+            val first = synchronized(pending) {
+                pending.firstOrNull()
+            }
+            first?.let {
+                it.get()
+                synchronized(pending) {
+                    pending.remove(it)
+                }
+                printActionProgress()
+            }
+        } while (first != null)
+    }
+
+    // find first non-empty state in operator results and return is lifted to an operator
+    fun <T: Any> choose(op: Operator<T>): Pair<Int, T> {
+        var max: Pair<Int, T>? = null
+        var maxCovered: Double = 0.0
+        op.compute().entries().forEach { (state, p) ->
+            val params = p as MutableSet<Rectangle>
+            val covered = params.fold(0.0) { acc, rect ->
+                acc + rect.asIntervals().map { Math.abs(it[1] - it[0]) }.fold(1.0) { acc, dim -> acc * dim }
+            }
+            if (covered > maxCovered) {
+                max = state to p
+                maxCovered = covered
+            }
+        }
+        return max!!
+    }
+
+    fun <T: Any> chooseSimple(op: Operator<T>): Pair<Int, T> = op.compute().entries().next()
+
+}
 // ---------------------- PLUMBING TO PUT IT ALL TOGETHER ------------------------
 
 internal fun String.readStream(): PrintStream? = when (this) {
@@ -227,7 +235,17 @@ data class Config(
                 name = "-r", aliases = arrayOf("--result"),
                 usage = "Type of result format. Accepted values: human, json."
         )
-        var resultType: ResultType = ResultType.HUMAN
+        var resultType: ResultType = ResultType.HUMAN,
+        @field:Option(
+                name = "--parallelism",
+                usage = "Recommended number of used threads."
+        )
+        var parallelism: Int = Runtime.getRuntime().availableProcessors(),
+        @field:Option(
+                name = "--disable-heuristic",
+                usage = "Use to disable the set size state choosing heuristic"
+        )
+        var disableHeuristic: Boolean = false
 )
 
 fun main(args: Array<String>) {
@@ -266,46 +284,48 @@ fun main(args: Array<String>) {
         CheckerStats.reset(logStream)
 
         // enter transition system context
-        transitionSystem.run {
+        Algorithm(config.parallelism, !config.disableHeuristic).run {
+            transitionSystem.run {
 
-            // transition system is not synchronized, however, it is read-safe.
-            // hence if we pre-compute all transitions before actually starting the algorithm,
-            // we can safely perform operations in parallel.
-            (0 until stateCount).forEach {
-                it.predecessors(true)
-                it.predecessors(false)
-                it.successors(true)
-                it.successors(false)
-            }
+                // transition system is not synchronized, however, it is read-safe.
+                // hence if we pre-compute all transitions before actually starting the algorithm,
+                // we can safely perform operations in parallel.
+                (0 until stateCount).forEach {
+                    it.predecessors(true)
+                    it.predecessors(false)
+                    it.successors(true)
+                    it.successors(false)
+                }
 
-            logStream?.println("Transition system computed. Starting component search...")
+                logStream?.println("Transition system computed. Starting component search...")
 
-            // counter is synchronized
-            val counter = Count(this)
+                // counter is synchronized
+                val counter = Count(this)
 
-            // compute results
-            val allStates = TrueOperator(this)
-            startAction(allStates, counter)
+                // compute results
+                val allStates = TrueOperator(this)
+                startAction(allStates, counter)
 
-            blockWhilePending()
-            executor.shutdown()
+                blockWhilePending()
+                executor.shutdown()
 
-            logStream?.println("Component search done.")
-            logStream?.println("Max number of components: ${counter.max}.")
-            logStream?.println("Min number of components: ${counter.min}.")
+                logStream?.println("Component search done.")
+                logStream?.println("Max number of components: ${counter.max}.")
+                logStream?.println("Min number of components: ${counter.min}.")
 
-            config.resultOutput.readStream()?.use { outStream ->
-                if (config.resultType == ResultType.HUMAN) {
-                    for (i in 0 until counter.size) {        // print countTSCC for each parameter set
-                        outStream.println("${i+1} terminal components: ${counter[i].map { it.asIntervals() }}")
+                config.resultOutput.readStream()?.use { outStream ->
+                    if (config.resultType == ResultType.HUMAN) {
+                        for (i in 0 until counter.size) {        // print countTSCC for each parameter set
+                            outStream.println("${i + 1} terminal components: ${counter[i].map { it.asIntervals() }}")
+                        }
+                    } else {
+                        val result: MutableMap<String, List<StateMap<Set<Rectangle>>>> = HashMap()
+                        for (i in 0 until counter.size) {
+                            result["${i + 1}_terminal_components"] = listOf(SingletonStateMap(0, counter[i], ff))
+                        }
+
+                        outStream.println(printJsonRectResults(odeModel, result))
                     }
-                } else {
-                    val result: MutableMap<String, List<StateMap<Set<Rectangle>>>> = HashMap()
-                    for (i in 0 until counter.size) {
-                        result["${i+1}_terminal_components"] = listOf(SingletonStateMap(0, counter[i], ff))
-                    }
-
-                    outStream.println(printJsonRectResults(odeModel, result))
                 }
             }
         }
