@@ -134,6 +134,9 @@ fun main(args: Array<String>) {
         logStream?.println("Max number of components: ${counter.max}.")
         logStream?.println("Min number of components: ${counter.min}.")
 
+        SolverStats.printGlobal()
+        CheckerStats.printGlobal()
+
         config.resultOutput.readStream()?.use { outStream ->
             if (config.resultType == ResultType.HUMAN) {
                 for (i in 0 until counter.size) {        // print countTSCC for each parameter set
@@ -148,9 +151,6 @@ fun main(args: Array<String>) {
                 outStream.println(printJsonRectResults(odeModel, result))
             }
         }
-
-        SolverStats.printGlobal()
-        CheckerStats.printGlobal()
 
     } catch (e : CmdLineException) {
         // if there's a problem in the command line,
