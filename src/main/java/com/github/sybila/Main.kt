@@ -149,6 +149,9 @@ fun main(args: Array<String>) {
             }
         }
 
+        SolverStats.printGlobal()
+        CheckerStats.printGlobal()
+
     } catch (e : CmdLineException) {
         // if there's a problem in the command line,
         // you'll get this exception. this will report
