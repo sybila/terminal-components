@@ -155,9 +155,9 @@ class LocalAlgorithm(
     fun printActionProgress() {
         val last = lastPrint.get()
         if (System.currentTimeMillis() > last + 3000 && lastPrint.compareAndSet(last, System.currentTimeMillis())) {
-            synchronized(pending) {
+            /*synchronized(pending) {
                 println("Action queue: ${pending.size}")
-            }
+            }*/
         }
     }
 
