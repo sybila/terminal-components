@@ -82,7 +82,7 @@ class DistAlgorithm(
                 var maxWeight: Double = 0.0
                 map.entries().forEach { (state, p) ->
                     val weight = p.weight()
-                    if (weight > maxWeight) {
+                    if (weight > maxWeight || (weight == maxWeight && state > max?.first ?: -1)) {
                         max = state to p
                         maxWeight = weight
                     }
@@ -90,6 +90,13 @@ class DistAlgorithm(
                 max
             }
         }.fold<Future<Pair<Int, Params>?>, Pair<Int, Params>?>(null) { current, future ->
+            /*future.get()?.let { new ->
+                current?.assuming {
+                    val max = it.second.weight()
+                    val newMax = new.second.weight()
+                    max > newMax || (max == newMax && it.first < new.first)
+                } ?: new
+            } ?: current*/
             val new = future.get()
             current?.assuming { it.second.weight() > new?.second?.weight() ?: 0.0 } ?: new
         }!!
