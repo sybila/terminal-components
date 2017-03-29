@@ -198,7 +198,7 @@ class LocalAlgorithm(
             val covered = params.fold(0.0) { acc, rect ->
                 acc + rect.asIntervals().map { Math.abs(it[1] - it[0]) }.fold(1.0) { acc, dim -> acc * dim }
             }
-            if (covered > maxCovered) {
+            if (covered > maxCovered || (covered == maxCovered && state > max?.first ?: -1)) {
                 max = state to p
                 maxCovered = covered
             }
