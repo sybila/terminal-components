@@ -5,7 +5,6 @@ import com.github.sybila.checker.StateMap
 import com.github.sybila.checker.map.SingletonStateMap
 import com.github.sybila.checker.solver.SolverStats
 import com.github.sybila.ode.generator.det.RectangleSet
-import com.github.sybila.ode.generator.rect.Rectangle
 import com.github.sybila.ode.model.OdeModel
 import com.github.sybila.ode.model.Parser
 import com.github.sybila.ode.model.computeApproximation
@@ -15,6 +14,7 @@ import org.kohsuke.args4j.Option
 import java.io.File
 import java.io.PrintStream
 import java.util.*
+import kotlin.system.exitProcess
 
 typealias Params = RectangleSet
 
@@ -115,6 +115,11 @@ fun main(args: Array<String>) {
         val odeModel = Parser().parse(modelFile).computeApproximation(
                 fast = config.fastApproximation, cutToRange = config.cutToRange
         )
+
+        if (odeModel.parameters.size != 2) {
+            System.err.println("This alpha version supports only EXACTLY 2 parameters.")
+            exitProcess(10)
+        }
 
         logStream?.println("Configuration loaded. Computing transition system")
 
