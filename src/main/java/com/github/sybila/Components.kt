@@ -8,8 +8,8 @@ import com.github.sybila.checker.map.RangeStateMap
 import com.github.sybila.checker.operator.*
 import com.github.sybila.checker.partition.asSingletonPartition
 import com.github.sybila.huctl.DirectionFormula
-import com.github.sybila.ode.generator.rect.Rectangle
-import com.github.sybila.ode.generator.rect.RectangleOdeModel
+import com.github.sybila.ode.generator.det.DetOdeModel
+import com.github.sybila.ode.generator.det.RectangleSet
 import com.github.sybila.ode.model.OdeModel
 import java.io.PrintStream
 import java.util.*
@@ -69,7 +69,7 @@ class LocalAlgorithm(
 ) : Algorithm {
 
     override fun compute(model: OdeModel, config: Config, logStream: PrintStream?): Count<Params> {
-        val transitionSystem = SingletonChannel(RectangleOdeModel(model,
+        val transitionSystem = SingletonChannel(DetOdeModel(model,
                 createSelfLoops = !config.disableSelfLoops
         ).asSingletonPartition())
 
@@ -192,13 +192,11 @@ class LocalAlgorithm(
     // find first non-empty state in operator results and return is lifted to an operator
     fun <T: Any> choose(op: Operator<T>): Pair<Int, T> {
         var max: Pair<Int, T>? = null
-        var maxCovered: Double = 0.0
+        var maxCovered: Int = 0
         op.compute().entries().forEach { (state, p) ->
-            val params = p as MutableSet<Rectangle>
-            val covered = params.fold(0.0) { acc, rect ->
-                acc + rect.asIntervals().map { Math.abs(it[1] - it[0]) }.fold(1.0) { acc, dim -> acc * dim }
-            }
-            if (covered > maxCovered || (covered == maxCovered && state > max?.first ?: -1)) {
+            val params = p as RectangleSet
+            val covered = params.weight()
+            if (covered > maxCovered) {
                 max = state to p
                 maxCovered = covered
             }

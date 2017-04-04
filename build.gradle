@@ -38,7 +38,7 @@ dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     compile 'args4j:args4j:2.33'
     // BioDivine modules.
-    compile 'com.github.sybila:ode-generator:f3fe757320'    //latest commit with some minor changes
+    compile 'com.github.sybila:ode-generator:84427ced6d'    //latest commit with some minor changes
     compile 'com.github.sybila:ctl-model-checker:2.1.2'
 }
 

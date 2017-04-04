@@ -4,16 +4,17 @@ import com.github.sybila.checker.*
 import com.github.sybila.checker.channel.connectWithSharedMemory
 import com.github.sybila.checker.map.RangeStateMap
 import com.github.sybila.checker.partition.asUniformPartitions
-import com.github.sybila.ode.generator.rect.RectangleOdeModel
+import com.github.sybila.ode.generator.det.DetOdeModel
+import com.github.sybila.ode.generator.det.RectangleSet
 import com.github.sybila.ode.model.OdeModel
 import java.io.PrintStream
 import java.util.*
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 
-fun Params.weight() = this.fold(0.0) { acc, rect ->
+fun Params.weight() = this.values.cardinality()/*this.fold(0.0) { acc, rect ->
     acc + rect.asIntervals().map { Math.abs(it[1] - it[0]) }.fold(1.0) { acc, dim -> acc * dim }
-}
+}*/
 
 fun <T: Any> StateMap<T>.asOp(): Operator<T> = ExplicitOperator(this)
 
@@ -27,7 +28,7 @@ class DistAlgorithm(
 
     override fun compute(model: OdeModel, config: Config, logStream: PrintStream?): Count<Params> {
 
-        val transitionSystem = RectangleOdeModel(model)
+        val transitionSystem = DetOdeModel(model)
 
         transitionSystem.run {
 
@@ -79,7 +80,7 @@ class DistAlgorithm(
         fun List<StateMap<Params>>.choose() = this.map { map ->
             executor.submit<Pair<Int, Params>> {
                 var max: Pair<Int, Params>? = null
-                var maxWeight: Double = 0.0
+                var maxWeight: Int = 0
                 map.entries().forEach { (state, p) ->
                     val weight = p.weight()
                     if (weight > maxWeight || (weight == maxWeight && state > max?.first ?: -1)) {
@@ -98,7 +99,7 @@ class DistAlgorithm(
                 } ?: new
             } ?: current*/
             val new = future.get()
-            current?.assuming { it.second.weight() > new?.second?.weight() ?: 0.0 } ?: new
+            current?.assuming { it.second.weight() > new?.second?.weight() ?: 0 } ?: new
         }!!
 
         //println("Start recursion: ${universe.isStrongEmpty()}")
@@ -145,7 +146,7 @@ class DistAlgorithm(
             //println("V/BB: $V_minus_BB_result")
 
             val componentParams = V_minus_BB_result.asSequence().flatMap { it.entries().asSequence() }
-                    .fold<Pair<Int, Params>, Params>(HashSet()) { acc, (_, params) ->
+                    .fold<Pair<Int, Params>, Params>(RectangleSet(doubleArrayOf(), doubleArrayOf(), BitSet())) { acc, (_, params) ->
                 acc or params
             }
 

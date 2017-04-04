@@ -2,6 +2,7 @@ package com.github.sybila
 
 import com.github.sybila.checker.StateMap
 import com.github.sybila.ode.generator.NodeEncoder
+import com.github.sybila.ode.generator.det.RectangleSet
 import com.github.sybila.ode.generator.rect.Rectangle
 import com.github.sybila.ode.model.OdeModel
 import com.google.gson.Gson
@@ -49,11 +50,11 @@ internal class State(
 )
 
 
-internal fun printJsonRectResults(model: OdeModel, result: Map<String, List<StateMap<Set<Rectangle>>>>): String {
+internal fun printJsonRectResults(model: OdeModel, result: Map<String, List<StateMap<RectangleSet>>>): String {
     val stateIndexMapping = HashMap<Int, Int>()
     val states = ArrayList<Int>()
-    val paramsIndexMapping = HashMap<Set<Rectangle>, Int>()
-    val params = ArrayList<Set<Rectangle>>()
+    val paramsIndexMapping = HashMap<RectangleSet, Int>()
+    val params = ArrayList<RectangleSet>()
     val map = ArrayList<Result>()
     for ((f, r) in result) {
         val rMap = ArrayList<List<Int>>()
@@ -81,7 +82,7 @@ internal fun printJsonRectResults(model: OdeModel, result: Map<String, List<Stat
             type = "rectangular",
             results = map,
             parameterValues = params.map {
-                it.map { it.asIntervals() }
+                it.asIntervals()
             },
             parameterBounds = model.parameters.map { listOf(it.range.first, it.range.second) }
     )

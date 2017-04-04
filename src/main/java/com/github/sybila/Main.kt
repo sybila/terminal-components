@@ -4,6 +4,7 @@ import com.github.sybila.checker.CheckerStats
 import com.github.sybila.checker.StateMap
 import com.github.sybila.checker.map.SingletonStateMap
 import com.github.sybila.checker.solver.SolverStats
+import com.github.sybila.ode.generator.det.RectangleSet
 import com.github.sybila.ode.generator.rect.Rectangle
 import com.github.sybila.ode.model.OdeModel
 import com.github.sybila.ode.model.Parser
@@ -15,7 +16,7 @@ import java.io.File
 import java.io.PrintStream
 import java.util.*
 
-typealias Params = MutableSet<Rectangle>
+typealias Params = RectangleSet
 
 interface Algorithm {
     fun compute(model: OdeModel, config: Config, logStream: PrintStream?): Count<Params>
@@ -140,10 +141,10 @@ fun main(args: Array<String>) {
         config.resultOutput.readStream()?.use { outStream ->
             if (config.resultType == ResultType.HUMAN) {
                 for (i in 0 until counter.size) {        // print countTSCC for each parameter set
-                    outStream.println("${i + 1} terminal components: ${counter[i].map { it.asIntervals() }}")
+                    outStream.println("${i + 1} terminal components: ${counter[i].asIntervals() }}")
                 }
             } else {
-                val result: MutableMap<String, List<StateMap<Set<Rectangle>>>> = HashMap()
+                val result: MutableMap<String, List<StateMap<RectangleSet>>> = HashMap()
                 for (i in 0 until counter.size) {
                     result["${i + 1}_terminal_components"] = listOf(SingletonStateMap(0, counter[i], counter[i]))
                 }
