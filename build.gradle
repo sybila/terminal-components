@@ -1,6 +1,6 @@
 //initialize Kotlin build plugin
 buildscript {
-    ext.kotlin_version = '1.1.0'
+    ext.kotlin_version = '1.1.1'
 
     repositories {
         jcenter()
@@ -19,7 +19,7 @@ apply plugin: 'application'
 
 group = "com.github.sybila"
 mainClassName = "com.github.sybila.ExplicitKt"
-version = '0.3.1'
+version = '0.5.0-alpha1'
 
 
 // In this section you declare where to find the dependencies of your project
@@ -38,7 +38,7 @@ dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     compile 'args4j:args4j:2.33'
     // BioDivine modules.
-    compile 'com.github.sybila:ode-generator:e9dace3210'    //latest commit with some minor changes
+    compile 'com.github.sybila:ode-generator:84427ced6d'    //latest commit with some minor changes
     compile 'com.github.sybila:ctl-model-checker:2.1.2'
 }
 
