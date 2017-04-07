@@ -19,7 +19,7 @@ apply plugin: 'application'
 
 group = "com.github.sybila"
 mainClassName = "com.github.sybila.ExplicitKt"
-version = '0.5.0-alpha1'
+version = '0.5.0-tarjan'
 
 
 // In this section you declare where to find the dependencies of your project

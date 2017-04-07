@@ -1,16 +1,13 @@
 package com.github.sybila
 
-import com.github.sybila.checker.channel.SingletonChannel
-import com.github.sybila.checker.operator.TrueOperator
-import com.github.sybila.checker.partition.asSingletonPartition
 import com.github.sybila.ode.generator.NodeEncoder
 import com.github.sybila.ode.generator.bool.BoolOdeModel
+import com.github.sybila.ode.generator.rect.RectangleOdeModel
 import com.github.sybila.ode.model.OdeModel
 import com.github.sybila.ode.model.Parser
 import com.github.sybila.ode.model.computeApproximation
 import java.io.File
 import java.util.*
-import kotlin.system.measureTimeMillis
 
 fun OdeModel.forEachParameter(action: (OdeModel) -> Unit) {
 
@@ -65,6 +62,7 @@ fun OdeModel.forEachParameter(action: (OdeModel) -> Unit) {
         if (model.parameters.isEmpty()) action(model)
         else {
             for (value in valuations.last()) {
+                if (value == 0.0) continue
                 substitute(
                         model.substituteLastParameter(value),
                         valuations.dropLast(1), action
@@ -93,28 +91,30 @@ fun OdeModel.substituteLastParameter(value: Double): OdeModel = this.copy(
 fun main(args: Array<String>) {
     val modelFile = File(args[0])
 
-    val odeModel = Parser().parse(modelFile).computeApproximation(fast = true, cutToRange = false)
+    val odeModel = Parser().parse(modelFile).computeApproximation(fast = false, cutToRange = false)
 
-    Algorithm(8, false).run {
-        var count = 0
-        val time = measureTimeMillis {
-            odeModel.forEachParameter { model ->
-                val transitionSystem = SingletonChannel(BoolOdeModel(model).asSingletonPartition())
-                transitionSystem.run {
-                    // counter is synchronized
-                    val counter = Count(this)
+    val f = RectangleOdeModel(odeModel)
 
-                    // compute results
-                    val allStates = TrueOperator(this)
-                    startAction(allStates, counter)
+    val states = Array<List<Int>>(f.stateCount) { emptyList() }
 
-                    //blockWhilePending()
+    val tarjan = Tarjan()
 
-                    count = Math.max(counter.size, count)
-                }
+    var max = 0
+
+    odeModel.forEachParameter { model ->
+        BoolOdeModel(model).run {
+            // create state space
+            for (s in 0 until stateCount) {
+                states[s] = s.successors(true).asSequence().map { it.target }.toList()
+            }
+
+            val result = tarjan.getSCComponents(states)
+            if (result in (max + 1)..9) {
+                max = result
             }
         }
-        println("Count: $count in $time")
-        executor.shutdown()
     }
+
+    println("Done")
+    //println("Found max $max components")
 }
