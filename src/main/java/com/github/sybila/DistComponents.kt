@@ -3,7 +3,7 @@ package com.github.sybila
 import com.github.sybila.checker.*
 import com.github.sybila.checker.channel.connectWithSharedMemory
 import com.github.sybila.checker.map.RangeStateMap
-import com.github.sybila.checker.partition.asUniformPartitions
+import com.github.sybila.checker.partition.asBlockPartitions
 import com.github.sybila.ode.generator.det.DetOdeModel
 import com.github.sybila.ode.generator.det.RectangleSet
 import com.github.sybila.ode.model.OdeModel
@@ -42,8 +42,8 @@ class DistAlgorithm(
                 it.successors(false)
             }
 
-            val channels = (0 until parallelism).map { this }.asUniformPartitions().connectWithSharedMemory()
-                    //.asBlockPartitions(stateCount/32).connectWithSharedMemory()
+            val channels = (0 until parallelism).map { this }//.asUniformPartitions().connectWithSharedMemory()
+                    .asBlockPartitions(parallelism * 6).connectWithSharedMemory()
 
             val fullStateSpace = (0 until stateCount).asStateMap(tt)
 
@@ -97,29 +97,41 @@ class DistAlgorithm(
                 }
             }
 
+            fun Int.isSink() = this.successors(true).asSequence().fold(tt) { acc, t ->
+                acc and (if (t.target == this) t.bound else t.bound.not())
+            }
+
             fun List<StateMap<Params>>.choose() = this.map { map ->
                 executor.submit<Pair<Int, Params>> {
                     var max: Pair<Int, Params>? = null
                     var maxWeight: Int = 0
-                    map.entries().forEach { (state, p) ->
+                    var isSink: Boolean = false
+                    for ((state, p) in map.entries()) {
+                        val sink = state.isSink()
                         val weight = p.weight()
-                        if (weight > maxWeight || (weight == maxWeight && state < max?.first ?: -1)) {
+                        //if (weight > maxWeight || (weight == maxWeight && state < max?.first ?: -1)) {
+                        if ((sink.isSat() && !isSink) || (!isSink && (weight > maxWeight || (weight == maxWeight && state < max?.first ?: -1)))) {
+                            /*if (sink.isSat()) {
+                                println("Found sink in $state")
+                            }*/
                             max = state to p
                             maxWeight = weight
+                            isSink = sink.isSat()
                         }
                     }
                     max
                 }
             }.fold<Future<Pair<Int, Params>?>, Pair<Int, Params>?>(null) { current, future ->
-                future.get()?.let { new ->
+                /*future.get()?.let { new ->
                     current?.assuming {
                         val max = it.second.weight()
                         val newMax = new.second.weight()
-                        max > newMax || (max == newMax && it.first < new.first)
+                        it.first.isSink() || max > newMax || (max == newMax && it.first < new.first)
                     } ?: new
-                } ?: current
-                /*val new = future.get()
-                current?.assuming { it.second.weight() > new?.second?.weight() ?: 0 } ?: new*/
+                } ?: current*/
+                val new = future.get()
+                val winner = current?.assuming { it.first.isSink().isSat() || (new?.first?.isSink()?.isNotSat() ?: true && it.second.weight() > new?.second?.weight() ?: 0) } ?: new
+                winner
             }!!
 
             //println("Start recursion: ${universe.isStrongEmpty()}")

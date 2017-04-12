@@ -118,11 +118,12 @@ class LocalAlgorithm(
                 acc and (t.bound and vParams and universe.compute()[t.target]).not()
             }
 
+            println("Choose $v")
+
             if (shouldTrim.isSat()) {
                 universe = And(universe, Not(vOp))
                 continue
             }
-            println("Choose $v")
 
             // limit that restricts the whole state space to parameters associated with v
             val limit = ExplicitOperator(RangeStateMap(0 until stateCount, value = vParams, default = ff))
@@ -201,15 +202,23 @@ class LocalAlgorithm(
     }
 
     // find first non-empty state in operator results and return is lifted to an operator
-    fun <T: Any> choose(op: Operator<T>): Pair<Int, T> {
+    fun <T: Any> Channel<T>.choose(op: Operator<T>): Pair<Int, T> {
         var max: Pair<Int, T>? = null
         var maxCovered: Int = 0
+        var isSink: Boolean = false
         op.compute().entries().forEach { (state, p) ->
+            val sink = state.successors(true).asSequence().fold(tt) { acc, t ->
+                acc and (if (t.target == state) t.bound else t.bound.not())
+            }
             val params = p as RectangleSet
             val covered = params.weight()
-            if (covered > maxCovered || (covered == maxCovered && state < max?.first ?: -1)) {
+            if ((sink.isSat() && !isSink) || (!isSink && (covered > maxCovered || (covered == maxCovered && state < max?.first ?: -1)))) {
+                if (sink.isSat()) {
+                    println("Found sink in $state")
+                }
                 max = state to p
                 maxCovered = covered
+                isSink = sink.isSat()
             }
         }
         return max!!
