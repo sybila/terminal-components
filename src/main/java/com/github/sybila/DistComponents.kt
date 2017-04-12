@@ -3,7 +3,7 @@ package com.github.sybila
 import com.github.sybila.checker.*
 import com.github.sybila.checker.channel.connectWithSharedMemory
 import com.github.sybila.checker.map.RangeStateMap
-import com.github.sybila.checker.partition.asBlockPartitions
+import com.github.sybila.checker.partition.asUniformPartitions
 import com.github.sybila.ode.generator.det.DetOdeModel
 import com.github.sybila.ode.generator.det.RectangleSet
 import com.github.sybila.ode.model.OdeModel
@@ -42,8 +42,8 @@ class DistAlgorithm(
                 it.successors(false)
             }
 
-            val channels = (0 until parallelism).map { this }//.asUniformPartitions().connectWithSharedMemory()
-                    .asBlockPartitions(parallelism * 6).connectWithSharedMemory()
+            val channels = (0 until parallelism).map { this }.asUniformPartitions().connectWithSharedMemory()
+                    //.asBlockPartitions(parallelism * 6).connectWithSharedMemory()
 
             val fullStateSpace = (0 until stateCount).asStateMap(tt)
 
