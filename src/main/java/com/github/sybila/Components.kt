@@ -111,13 +111,22 @@ class LocalAlgorithm(
         while (!isResultEmpty(universe)) {
             val (v, vParams) = if (useHeuristics) choose(universe) else chooseSimple(universe)
 
+            // operator for single state v
+            val vOp = ExplicitOperator(v.asStateMap(vParams))
+
+            val shouldTrim = v.predecessors(true).asSequence().fold(tt) { acc, t ->
+                acc and (t.bound and vParams and universe.compute()[t.target]).not()
+            }
+
+            if (shouldTrim.isSat()) {
+                universe = And(universe, Not(vOp))
+                continue
+            }
             println("Choose $v")
 
             // limit that restricts the whole state space to parameters associated with v
             val limit = ExplicitOperator(RangeStateMap(0 until stateCount, value = vParams, default = ff))
 
-            // operator for single state v
-            val vOp = ExplicitOperator(v.asStateMap(vParams))
 
             // F - states reachable from v
             val F = And(universe, FWD(vOp))

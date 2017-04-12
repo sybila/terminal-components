@@ -3,7 +3,7 @@ package com.github.sybila
 import com.github.sybila.checker.*
 import com.github.sybila.checker.channel.connectWithSharedMemory
 import com.github.sybila.checker.map.RangeStateMap
-import com.github.sybila.checker.partition.asBlockPartitions
+import com.github.sybila.checker.partition.asUniformPartitions
 import com.github.sybila.ode.generator.det.DetOdeModel
 import com.github.sybila.ode.generator.det.RectangleSet
 import com.github.sybila.ode.model.OdeModel
@@ -42,7 +42,7 @@ class DistAlgorithm(
                 it.successors(false)
             }
 
-            val channels = (0 until parallelism).map { this }.asBlockPartitions(stateCount/16).connectWithSharedMemory()
+            val channels = (0 until parallelism).map { this }.asUniformPartitions().connectWithSharedMemory()//.asBlockPartitions(stateCount/16).connectWithSharedMemory()
 
             val fullStateSpace = (0 until stateCount).asStateMap(tt)
 
@@ -60,107 +60,135 @@ class DistAlgorithm(
 
     val executor = Executors.newFixedThreadPool(parallelism)!!
 
+    var modelChecking = 0L
+    var start = 0L
+
     fun Model<Params>.paramRecursionTSCC(channels: List<Channel<Params>>, states: List<StateMap<Params>>, counter: Count<Params>) {
-        var universe = states
+        val universes = ArrayDeque<List<StateMap<Params>>>()
+        universes.push(states)
+        while (universes.isNotEmpty()) {
 
-        fun List<StateMap<Params>>.isStrongEmpty() = this.zip(channels).map { (map, solver) ->
-            executor.submit<Boolean> {
-                solver.run {
-                    map.entries().asSequence().all { it.second.isNotSat() }
-                }
-            }
-        }.all { it.get() }
+            var universe = universes.pop()//states
 
-        fun List<Operator<Params>>.compute(): List<StateMap<Params>> = this.map { op ->
-            executor.submit<StateMap<Params>> {
-                op.compute()
-            }
-        }.map { it.get() }
-
-        fun List<StateMap<Params>>.choose() = this.map { map ->
-            executor.submit<Pair<Int, Params>> {
-                var max: Pair<Int, Params>? = null
-                var maxWeight: Int = 0
-                map.entries().forEach { (state, p) ->
-                    val weight = p.weight()
-                    if (weight > maxWeight || (weight == maxWeight && state < max?.first ?: -1)) {
-                        max = state to p
-                        maxWeight = weight
+            fun List<StateMap<Params>>.isStrongEmpty() = this.zip(channels).map { (map, solver) ->
+                executor.submit<Boolean> {
+                    solver.run {
+                        map.entries().asSequence().all { it.second.isNotSat() }
                     }
                 }
-                max
+            }.all { it.get() }
+
+            fun List<Operator<Params>>.compute(): List<StateMap<Params>> = this.map { op ->
+                executor.submit<StateMap<Params>> {
+                    op.compute()
+                }
+            }.map { it.get() }
+
+            fun List<StateMap<Params>>.choose() = this.map { map ->
+                executor.submit<Pair<Int, Params>> {
+                    var max: Pair<Int, Params>? = null
+                    var maxWeight: Int = 0
+                    map.entries().forEach { (state, p) ->
+                        val weight = p.weight()
+                        if (weight > maxWeight || (weight == maxWeight && state < max?.first ?: -1)) {
+                            max = state to p
+                            maxWeight = weight
+                        }
+                    }
+                    max
+                }
+            }.fold<Future<Pair<Int, Params>?>, Pair<Int, Params>?>(null) { current, future ->
+                future.get()?.let { new ->
+                    current?.assuming {
+                        val max = it.second.weight()
+                        val newMax = new.second.weight()
+                        max > newMax || (max == newMax && it.first < new.first)
+                    } ?: new
+                } ?: current
+                /*val new = future.get()
+                current?.assuming { it.second.weight() > new?.second?.weight() ?: 0 } ?: new*/
+            }!!
+
+            //println("Start recursion: ${universe.isStrongEmpty()}")
+
+            while (!universe.isStrongEmpty()) {
+
+                //println("Iteration")
+
+                val (v, vParams) = universe.choose()
+
+                val vOp = channels.flatRun { v.asStateMap(vParams).restrictToPartition().asOp() }
+
+                var trimmed = false
+                val somePartition = channels[0]
+                somePartition.run {
+                    val shouldTrim = v.predecessors(true).asSequence().fold(tt) { acc, t ->
+                        acc and (t.bound and vParams and universe[t.target.owner()][t.target]).not()
+                    }
+
+                    if (shouldTrim.isSat()) {
+                        universe = universe.zip(vOp).zipRun(channels) { (universe, vOp) ->
+                            And(universe.asOp(), Not(vOp))
+                        }.compute()
+                        trimmed = true
+                    }
+
+                    println("Chosen: $v Trim: ${shouldTrim.isSat()}")
+
+                }
+
+                if (trimmed) continue
+
+                val limits = channels.flatRun {
+                    RangeStateMap(0 until stateCount, value = vParams, default = ff).restrictToPartition().asOp()
+                }
+
+                val F = universe.zip(vOp).zipRun(channels) { (universe, vOp) ->
+                    And(universe.asOp(), FWD(vOp))
+                }
+
+                val B = F.zip(vOp).zipRun(channels) { (F, vOp) ->
+                    And(F, BWD(vOp))
+                }
+
+                val F_minus_B = F.zip(B).zipRun(channels) { (F, B) ->
+                    And(F, Not(B))
+                }
+
+                F_minus_B.compute().assuming { !it.isStrongEmpty() }?.let {
+                    //paramRecursionTSCC(channels, it, counter)
+                    universes.push(it)
+                }
+
+                val BB = universe.zip(F).zipRun(channels) { (universe, F) ->
+                    And(universe.asOp(), BWD(F))
+                }
+
+                val V_minus_BB = universe.zip(limits).zip(BB).zipRun(channels) { (pair, BB) ->
+                    val (uni, limit) = pair
+                    And(And(uni.asOp(), limit), Not(BB))
+                }
+
+                val V_minus_BB_result = V_minus_BB.compute()
+
+                //println("V/BB: $V_minus_BB_result")
+
+                val componentParams = V_minus_BB_result.asSequence().flatMap { it.entries().asSequence() }
+                        .fold<Pair<Int, Params>, Params>(RectangleSet(doubleArrayOf(), doubleArrayOf(), BitSet())) { acc, (_, params) ->
+                            acc or params
+                        }
+
+                if (componentParams.isSat()) {
+                    counter.push(componentParams)
+                    //paramRecursionTSCC(channels, V_minus_BB_result, counter)
+                    universes.push(V_minus_BB_result)
+                }
+
+                universe = universe.zip(limits).zipRun(channels) { (universe, limit) ->
+                    And(universe.asOp(), Not(limit))
+                }.compute()
+
             }
-        }.fold<Future<Pair<Int, Params>?>, Pair<Int, Params>?>(null) { current, future ->
-            future.get()?.let { new ->
-                current?.assuming {
-                    val max = it.second.weight()
-                    val newMax = new.second.weight()
-                    max > newMax || (max == newMax && it.first < new.first)
-                } ?: new
-            } ?: current
-            /*val new = future.get()
-            current?.assuming { it.second.weight() > new?.second?.weight() ?: 0 } ?: new*/
-        }!!
-
-        //println("Start recursion: ${universe.isStrongEmpty()}")
-
-        while (!universe.isStrongEmpty()) {
-
-            //println("Iteration")
-
-            val (v, vParams) = universe.choose()
-
-            println("Chosen $v")
-
-            val limits = channels.flatRun {
-                RangeStateMap(0 until stateCount, value = vParams, default = ff).restrictToPartition().asOp()
-            }
-
-            val vOp = channels.flatRun { v.asStateMap(vParams).restrictToPartition().asOp() }
-
-            val F = universe.zip(vOp).zipRun(channels) { (universe, vOp) ->
-                And(universe.asOp(), FWD(vOp))
-            }
-
-            val B = F.zip(vOp).zipRun(channels) { (F, vOp) ->
-                And(F, BWD(vOp))
-            }
-
-            val F_minus_B = F.zip(B).zipRun(channels) { (F, B) ->
-                And(F, Not(B))
-            }
-
-            F_minus_B.compute().assuming { !it.isStrongEmpty() }?.let {
-                paramRecursionTSCC(channels, it, counter)
-            }
-
-            val BB = universe.zip(F).zipRun(channels) { (universe, F) ->
-                And(universe.asOp(), BWD(F))
-            }
-
-            val V_minus_BB = universe.zip(limits).zip(BB).zipRun(channels) { (pair, BB) ->
-                val (uni, limit) = pair
-                And(And(uni.asOp(), limit), Not(BB))
-            }
-
-            val V_minus_BB_result = V_minus_BB.compute()
-
-            //println("V/BB: $V_minus_BB_result")
-
-            val componentParams = V_minus_BB_result.asSequence().flatMap { it.entries().asSequence() }
-                    .fold<Pair<Int, Params>, Params>(RectangleSet(doubleArrayOf(), doubleArrayOf(), BitSet())) { acc, (_, params) ->
-                acc or params
-            }
-
-            if (componentParams.isSat()) {
-                counter.push(componentParams)
-                paramRecursionTSCC(channels, V_minus_BB_result, counter)
-            }
-
-            universe = universe.zip(limits).zipRun(channels) { (universe, limit) ->
-                And(universe.asOp(), Not(limit))
-            }.compute()
-
         }
 
     }
