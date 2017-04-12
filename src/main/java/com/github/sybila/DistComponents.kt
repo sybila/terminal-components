@@ -42,7 +42,8 @@ class DistAlgorithm(
                 it.successors(false)
             }
 
-            val channels = (0 until parallelism).map { this }.asUniformPartitions().connectWithSharedMemory()//.asBlockPartitions(stateCount/16).connectWithSharedMemory()
+            val channels = (0 until parallelism).map { this }.asUniformPartitions().connectWithSharedMemory()
+                    //.asBlockPartitions(stateCount/32).connectWithSharedMemory()
 
             val fullStateSpace = (0 until stateCount).asStateMap(tt)
 
@@ -53,6 +54,8 @@ class DistAlgorithm(
             paramRecursionTSCC(channels, initialSpace, counter)
             executor.shutdown()
 
+            println("MC time: $modelChecking Max: $maxTime Avr: ${modelChecking/count}")
+
             return counter
         }
 
@@ -61,6 +64,8 @@ class DistAlgorithm(
     val executor = Executors.newFixedThreadPool(parallelism)!!
 
     var modelChecking = 0L
+    var maxTime = 0L
+    var count = 0
     var start = 0L
 
     fun Model<Params>.paramRecursionTSCC(channels: List<Channel<Params>>, states: List<StateMap<Params>>, counter: Count<Params>) {
@@ -78,11 +83,18 @@ class DistAlgorithm(
                 }
             }.all { it.get() }
 
-            fun List<Operator<Params>>.compute(): List<StateMap<Params>> = this.map { op ->
+            fun List<Operator<Params>>.compute(): List<StateMap<Params>> = this.also { start = System.currentTimeMillis() }.map { op ->
                 executor.submit<StateMap<Params>> {
                     op.compute()
                 }
-            }.map { it.get() }
+            }.map { it.get() }.also {
+                val total = System.currentTimeMillis() - start
+                modelChecking += total
+                count += 1
+                if (total > maxTime) {
+                    maxTime = total
+                }
+            }
 
             fun List<StateMap<Params>>.choose() = this.map { map ->
                 executor.submit<Pair<Int, Params>> {
@@ -133,11 +145,12 @@ class DistAlgorithm(
                         trimmed = true
                     }
 
-                    println("Chosen: $v Trim: ${shouldTrim.isSat()}")
 
                 }
 
                 if (trimmed) continue
+
+                println("Chosen: $v")
 
                 val limits = channels.flatRun {
                     RangeStateMap(0 until stateCount, value = vParams, default = ff).restrictToPartition().asOp()
