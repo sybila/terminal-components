@@ -42,7 +42,7 @@ class DistAlgorithm(
                 it.successors(false)
             }
 
-            val channels = (0 until parallelism).map { this }.asBlockPartitions(64*parallelism).connectWithSharedMemory()
+            val channels = (0 until parallelism).map { this }.asBlockPartitions(stateCount/16).connectWithSharedMemory()
 
             val fullStateSpace = (0 until stateCount).asStateMap(tt)
 
@@ -83,7 +83,7 @@ class DistAlgorithm(
                 var maxWeight: Int = 0
                 map.entries().forEach { (state, p) ->
                     val weight = p.weight()
-                    if (weight > maxWeight || (weight == maxWeight && state > max?.first ?: -1)) {
+                    if (weight > maxWeight || (weight == maxWeight && state < max?.first ?: -1)) {
                         max = state to p
                         maxWeight = weight
                     }
@@ -91,15 +91,15 @@ class DistAlgorithm(
                 max
             }
         }.fold<Future<Pair<Int, Params>?>, Pair<Int, Params>?>(null) { current, future ->
-            /*future.get()?.let { new ->
+            future.get()?.let { new ->
                 current?.assuming {
                     val max = it.second.weight()
                     val newMax = new.second.weight()
                     max > newMax || (max == newMax && it.first < new.first)
                 } ?: new
-            } ?: current*/
-            val new = future.get()
-            current?.assuming { it.second.weight() > new?.second?.weight() ?: 0 } ?: new
+            } ?: current
+            /*val new = future.get()
+            current?.assuming { it.second.weight() > new?.second?.weight() ?: 0 } ?: new*/
         }!!
 
         //println("Start recursion: ${universe.isStrongEmpty()}")
@@ -109,6 +109,8 @@ class DistAlgorithm(
             //println("Iteration")
 
             val (v, vParams) = universe.choose()
+
+            println("Chosen $v")
 
             val limits = channels.flatRun {
                 RangeStateMap(0 until stateCount, value = vParams, default = ff).restrictToPartition().asOp()

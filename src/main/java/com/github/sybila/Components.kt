@@ -111,6 +111,8 @@ class LocalAlgorithm(
         while (!isResultEmpty(universe)) {
             val (v, vParams) = if (useHeuristics) choose(universe) else chooseSimple(universe)
 
+            println("Choose $v")
+
             // limit that restricts the whole state space to parameters associated with v
             val limit = ExplicitOperator(RangeStateMap(0 until stateCount, value = vParams, default = ff))
 
@@ -196,7 +198,7 @@ class LocalAlgorithm(
         op.compute().entries().forEach { (state, p) ->
             val params = p as RectangleSet
             val covered = params.weight()
-            if (covered > maxCovered) {
+            if (covered > maxCovered || (covered == maxCovered && state < max?.first ?: -1)) {
                 max = state to p
                 maxCovered = covered
             }
