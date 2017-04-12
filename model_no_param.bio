@@ -5,7 +5,7 @@ PARAMS: deg_y,0.1,0.10000001; deg_x,0.1,0.10000001
 EQ: x = k1*hillm(y,5,5,1,0) - deg_x*x
 EQ: y = k2*hillm(x,5,5,1,0) - deg_y*y
 
-VAR_POINTS: x: 2500, 200; y: 2500, 200
+VAR_POINTS: x: 2500, 500; y: 2500, 500
 
 THRES: x: 0, 15
 THRES: y: 0, 15

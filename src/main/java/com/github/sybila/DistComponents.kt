@@ -93,6 +93,7 @@ class DistAlgorithm(
                 count += 1
                 if (total > maxTime) {
                     maxTime = total
+                    println("New max: $maxTime")
                 }
             }
 
