@@ -134,7 +134,7 @@ fun main(args: Array<String>) {
         else
             DistAlgorithm(config.parallelism)*/
 
-        val algorithm = NewComponents()
+        val algorithm = NewDist(config.parallelism)
 
         val counter = algorithm.compute(odeModel, config, logStream)
 
