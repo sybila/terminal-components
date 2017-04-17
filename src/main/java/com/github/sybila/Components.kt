@@ -5,6 +5,8 @@ import com.github.sybila.checker.Operator
 import com.github.sybila.checker.StateMap
 import com.github.sybila.checker.channel.SingletonChannel
 import com.github.sybila.checker.map.RangeStateMap
+import com.github.sybila.checker.map.mutable.ContinuousStateMap
+import com.github.sybila.checker.map.mutable.HashStateMap
 import com.github.sybila.checker.operator.*
 import com.github.sybila.checker.partition.asSingletonPartition
 import com.github.sybila.huctl.DirectionFormula
@@ -16,6 +18,7 @@ import java.util.*
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.collections.HashSet
 
 // --------------------- GENERAL HELPER FUNCTIONS --------------------------
 
@@ -30,7 +33,7 @@ import java.util.concurrent.atomic.AtomicLong
 // shorthand for creating an And/Or/Not operators
 fun <T: Any> Channel<T>.And(left: Operator<T>, right: Operator<T>) = AndOperator(left, right, this)
 fun <T: Any> Channel<T>.Or(left: Operator<T>, right: Operator<T>) = OrOperator(left, right, this)
-fun <T: Any> Channel<T>.Not(left: Operator<T>) = ComplementOperator(TrueOperator(this), left, this)
+fun <T: Any> Channel<T>.Complement(left: Operator<T>, domain: Operator<T>) = ComplementOperator(domain, left, this)
 
 // forward reachability
 fun <T: Any> Channel<T>.FWD(inner: Operator<T>) = ExistsUntilOperator(
@@ -92,7 +95,8 @@ class LocalAlgorithm(
 
             // compute results
             val allStates = TrueOperator(this)
-            startAction(allStates, counter)
+            val heuristics = Heuristics(transitionSystem)
+            startAction(allStates, counter, heuristics)
 
             blockWhilePending()
             executor.shutdown()
@@ -106,10 +110,94 @@ class LocalAlgorithm(
     private val pending = ArrayList<Future<*>>()
 
     // This is the generic version of the terminal ssc algorithm:
-    fun <T: Any> Channel<T>.paramRecursionTSCC(op: Operator<T>, paramCounts: Count<T>) {
-        var universe = op
-        while (!isResultEmpty(universe)) {
-            val (v, vParams) = if (useHeuristics) choose(universe) else chooseSimple(universe)
+    fun Channel<Params>.paramRecursionTSCC(op: Operator<Params>, paramCounts: Count<Params>, heuristics: Heuristics) {
+        //var universe = op
+        var pivotCount = 0
+        var trimCount = 0
+        val pivots = HashStateMap(ff)
+        var uncovered = ff
+        val universe = ContinuousStateMap(0, stateCount, ff).apply {
+            op.compute().entries().forEach {
+                set(it.first, it.second)
+                uncovered = uncovered or it.second
+            }
+        }
+
+        do {
+            val weights = universe.entries().asSequence().map { it.first to (it.second and uncovered).weight() }.toList()
+            val maxWeight: Double = weights.maxBy { it.second }?.second ?: 0.0
+            val states = weights.filter { it.second == maxWeight }.map { it.first }.sorted()
+            val pivot = states[states.size / 2]
+            val pivotColors = universe[pivot] and uncovered
+
+            val canTrim = pivot.predecessors(true).asSequence().fold(pivotColors) { acc, t ->
+                acc and (t.bound and pivotColors).not()
+            }
+
+            if (canTrim.isSat()) {
+                universe[pivot] = universe[pivot] and canTrim.not()
+                trimCount += 1
+            } else {
+                pivotCount += 1
+                pivots[pivot] = pivotColors
+                uncovered = uncovered and pivotColors.not()
+            }
+
+        } while (uncovered.isSat())
+
+        println("pivots: $pivotCount; trims: $trimCount")
+
+        val vOp = ExplicitOperator(pivots)
+        val universeOp = ExplicitOperator(universe)
+
+        // F - states reachable from v
+        val F = And(universeOp, FWD(vOp))
+        // B - states that can reach v but are also reachable from v
+        val B = And(F, BWD(vOp))
+        // F\B - states reachable from v but not reaching v - i.e. a potentially new terminal component
+        // will be empty if v is on a terminal cycle
+        val F_minus_B = And(F, Complement(B, TrueOperator(this)))
+
+        if (!isResultEmpty(F_minus_B)) {
+            //cont = Or(ExplicitOperator(cont), F_minus_B).compute()
+            startAction(F_minus_B, paramCounts, heuristics)
+        }
+
+        // BB - B' - All valid predecessors of F
+        val BB = And(universeOp, BWD(F))
+
+        // V \ BB restricted to the parameters of state v
+        val V_minus_BB = And(universeOp, Complement(BB, TrueOperator(this)))
+
+        // compute parameter union across the potential new component
+        val componentParams = V_minus_BB.compute().entries().asSequence().fold(ff) { acc, (_, params) ->
+            acc or params
+        }
+
+        if (componentParams.isSat()) {
+            paramCounts.push(componentParams)
+            startAction(V_minus_BB, paramCounts, heuristics)
+            //inc = Or(ExplicitOperator(inc), V_minus_BB).compute()
+        }
+
+        /*while (!isResultEmpty(universe)) {
+            i += 1
+            //val magic = heuristics.findMagic(universe.compute())
+            //val v = magic.state
+            //val vParams = magic.params
+            //println("${magic.state} with ${magic.magic} / ${magic.magicWeight}")
+            val weights = universe.compute().entries().asSequence().map { it.first to it.second.weight() }.toList()
+            val maxWeight = weights.maxBy { it.second }?.second ?: 0
+            val states = weights.filter { it.second == maxWeight }.map { it.first }.sorted()
+            //val states = universe.compute().states().asSequence().toList().sorted()
+            val vIndex = states[states.size / 2]
+            val (v, vParams) = vIndex to universe.compute()[vIndex]
+
+            //println("Select $v with ${vParams.weight()}")
+
+            //if (useHeuristics) choose(universe) else chooseSimple(universe)
+
+
 
             // operator for single state v
             val vOp = ExplicitOperator(v.asStateMap(vParams))
@@ -118,10 +206,10 @@ class LocalAlgorithm(
                 acc and (t.bound and vParams and universe.compute()[t.target]).not()
             }
 
-            println("Choose $v")
+            //println("Choose $v")
 
             if (shouldTrim.isSat()) {
-                universe = And(universe, Not(vOp))
+                universe = And(universe, Not(ExplicitOperator(v.asStateMap(shouldTrim))))
                 continue
             }
 
@@ -138,7 +226,8 @@ class LocalAlgorithm(
             val F_minus_B = And(F, Not(B))
 
             if (!isResultEmpty(F_minus_B)) {
-                startAction(F_minus_B, paramCounts)
+                //cont = Or(ExplicitOperator(cont), F_minus_B).compute()
+                startAction(F_minus_B, paramCounts, heuristics)
             }
 
             // BB - B' - All valid predecessors of F
@@ -154,12 +243,14 @@ class LocalAlgorithm(
 
             if (componentParams.isSat()) {
                 paramCounts.push(componentParams)
-                startAction(V_minus_BB, paramCounts)
+                startAction(V_minus_BB, paramCounts, heuristics)
+                //inc = Or(ExplicitOperator(inc), V_minus_BB).compute()
             }
 
             // cut the processed area out of the universe and repeat
             universe = And(universe, Not(limit))
         }
+        println("$i")*/
     }
 
     private var lastPrint = AtomicLong(System.currentTimeMillis())
@@ -173,11 +264,11 @@ class LocalAlgorithm(
         }
     }
 
-    fun <T: Any> Channel<T>.startAction(states: Operator<T>, paramCounts: Count<T>) {
+    fun Channel<Params>.startAction(states: Operator<Params>, paramCounts: Count<Params>, heuristics: Heuristics) {
         // start new task in an executor and save it into pending
         synchronized(pending) {
             val future = executor.submit {
-                paramRecursionTSCC(states, paramCounts)
+                paramRecursionTSCC(states, paramCounts, heuristics)
             }
             pending.add(future)
             printActionProgress()
@@ -204,7 +295,7 @@ class LocalAlgorithm(
     // find first non-empty state in operator results and return is lifted to an operator
     fun <T: Any> Channel<T>.choose(op: Operator<T>): Pair<Int, T> {
         var max: Pair<Int, T>? = null
-        var maxCovered: Int = 0
+        var maxCovered: Double = 0.0
         var isSink: Boolean = false
         op.compute().entries().forEach { (state, p) ->
             val sink = state.successors(true).asSequence().fold(tt) { acc, t ->

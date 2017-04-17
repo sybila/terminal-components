@@ -129,10 +129,12 @@ fun main(args: Array<String>) {
         CheckerStats.reset(logStream)
 
 
-        val algorithm = if (config.algorithm == AlgorithmType.LOCAL)
+        /*val algorithm = if (config.algorithm == AlgorithmType.LOCAL)
             LocalAlgorithm(config.parallelism, !config.disableHeuristic)
         else
-            DistAlgorithm(config.parallelism)
+            DistAlgorithm(config.parallelism)*/
+
+        val algorithm = NewComponents()
 
         val counter = algorithm.compute(odeModel, config, logStream)
 
