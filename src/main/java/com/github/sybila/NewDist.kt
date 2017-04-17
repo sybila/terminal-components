@@ -49,7 +49,7 @@ class NewDist(
             states.sort()
             val restrictedSystem = ExplicitOdeModel(transitionSystem, universe, universeExecutor)
 
-            val parallelism = Math.min(config.parallelism, states.size / 1000)
+            val parallelism = Math.min(config.parallelism, Math.max(1, states.size / 1000))
 
             // compute universe partitioning
             val partitions = (0 until parallelism).map {
