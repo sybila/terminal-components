@@ -89,7 +89,12 @@ data class Config(
                 name = "--algorithm-type",
                 usage = "Specify the type of the algorithm."
         )
-        var algorithm: AlgorithmType = AlgorithmType.LOCAL
+        var algorithm: AlgorithmType = AlgorithmType.LOCAL,
+        @field:Option(
+                name = "--blocks-per-dimension",
+                usage = "The number of blocks per each dimension the state space is partitioned into."
+        )
+        var blocksPerDimension: Int = 1
 )
 
 fun main(args: Array<String>) {

@@ -8,6 +8,7 @@ import com.github.sybila.checker.map.mutable.ContinuousStateMap
 import com.github.sybila.checker.map.mutable.HashStateMap
 import com.github.sybila.checker.operator.TrueOperator
 import com.github.sybila.checker.partition.asSingletonPartition
+import com.github.sybila.ode.generator.NodeEncoder
 import com.github.sybila.ode.generator.det.DetOdeModel
 import com.github.sybila.ode.model.OdeModel
 import java.io.PrintStream
@@ -31,19 +32,34 @@ class NewDist(
         val universeQueue = ArrayDeque<StateMap<Params>>()
         universeQueue.push(allStates)
 
+        var start = 0L
+        var mcTime = 0L
+        var mcCount = 0L
+        var pivotTime = 0L
+        var initTime = 0L
+
+        println("State count: ${transitionSystem.stateCount}")
+
         while (universeQueue.isNotEmpty()) {
             val universe = universeQueue.poll()
 
             // restrict state space to this universe
+            start = System.currentTimeMillis()
             val states = universe.states().asSequence().toList().toIntArray()
             states.sort()
-            val restrictedSystem = ExplicitOdeModel(transitionSystem, universe)
+            val restrictedSystem = ExplicitOdeModel(transitionSystem, universe, universeExecutor)
+
+            val parallelism = Math.min(config.parallelism, states.size / 1000)
 
             // compute universe partitioning
-            val partitions = (0 until config.parallelism).map {
-                AdaptivePartition(it, config.parallelism, states, restrictedSystem)
+            val partitions = (0 until parallelism).map {
+                //BlockPartition(it, config.parallelism, 100, restrictedSystem)
+                //AdaptivePartition(it, config.parallelism, states, restrictedSystem)
+                NewBlockPartition(it, parallelism, config.blocksPerDimension, model, restrictedSystem)
             }.connectWithNoCopy()//.connectWithSharedMemory()
+            initTime += (System.currentTimeMillis() - start)
 
+            start = System.currentTimeMillis()
             // find pivots
             var pivotCount = 0
             val pivots = transitionSystem.run {
@@ -59,6 +75,7 @@ class NewDist(
 
                 pivots
             }
+            pivotTime += (System.currentTimeMillis() - start)
 
             println("Pivots: $pivotCount")
 
@@ -78,9 +95,15 @@ class NewDist(
                 Complement(B, F)
             }
 
+            start = System.currentTimeMillis()
             F_minus_B
                     // compute in parallel
                     .map { universeExecutor.submit<StateMap<Params>> { it.compute() } }.map { it.get() }
+                    .also {
+                        val duration = (System.currentTimeMillis() - start)
+                        if (duration > 1000) mcCount += duration
+                        mcTime += duration
+                    }
                     // check for emptiness
                     .assuming {
                         transitionSystem.run {
@@ -107,9 +130,15 @@ class NewDist(
                 Complement(BB, universe)
             }
 
+            start = System.currentTimeMillis()
             V_minus_BB
                     // compute in parallel
                     .map { universeExecutor.submit<StateMap<Params>> { it.compute() } }.map { it.get() }
+                    .also {
+                        val duration = (System.currentTimeMillis() - start)
+                        if (duration > 10000) mcCount += duration
+                        mcTime += duration
+                    }
                     // check for emptiness
                     .assuming {
                         transitionSystem.run {
@@ -137,11 +166,39 @@ class NewDist(
             }
         }
 
+        println("Pivot time: $pivotTime")
+        println("MC time: $mcTime")
+        println("MC interesting time: $mcCount")
+        println("Init time: $initTime")
+        println("Reachability: ${reachTimer.get()}")
+
         universeExecutor.shutdown()
 
         return counter
 
     }
+}
+
+class NewBlockPartition(
+        override val partitionId: Int,
+        override val partitionCount: Int,
+        private val blocksPerDimension: Int,
+        odeModel: OdeModel,
+        model: Model<Params>
+) : Partition<Params>, Model<Params> by model {
+
+    private val encoder = NodeEncoder(odeModel)
+
+    val xBlockSize = Math.ceil((odeModel.variables[0].thresholds.size - 1) / blocksPerDimension.toDouble()).toInt()
+    val yBlockSize = Math.ceil((odeModel.variables[1].thresholds.size - 1) / blocksPerDimension.toDouble()).toInt()
+
+    override fun Int.owner(): Int {
+        val x = (encoder.coordinate(this, 0) / xBlockSize)
+        val y = (encoder.coordinate(this, 1) / yBlockSize)
+        val blockIndex = blocksPerDimension * x + y
+        return blockIndex % partitionCount
+    }
+
 }
 
 class AdaptivePartition(
@@ -151,7 +208,7 @@ class AdaptivePartition(
         model: Model<Params>
 ) : Partition<Params>, Model<Params> by model {
 
-    val blockSize = 1000
+    val blockSize = 101
     val partitionSize = Math.max((states.size / partitionCount) + 1, 1000)
 
     override fun Int.owner(): Int {

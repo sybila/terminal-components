@@ -48,7 +48,7 @@ class NewLocal(parallelism: Int) : Algorithm {
             private val universe: StateMap<Params>): Callable<Unit> {
 
         override fun call() {
-            SingletonChannel(ExplicitOdeModel(transitionSystem, universe).asSingletonPartition()).run {
+            SingletonChannel(ExplicitOdeModel(transitionSystem, universe, universeExecutor).asSingletonPartition()).run {
 
                 val pivots = HashStateMap(ff)
                 var uncovered = universe.entries().asSequence().fold(ff) { a, b -> a or b.second }

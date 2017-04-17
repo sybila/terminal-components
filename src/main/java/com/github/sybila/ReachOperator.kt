@@ -4,6 +4,7 @@ import com.github.sybila.checker.*
 import com.github.sybila.checker.operator.LazyOperator
 import com.github.sybila.huctl.DirectionFormula
 import java.util.HashSet
+import java.util.concurrent.atomic.AtomicLong
 
 internal fun <Params : Any> List<StateMap<Params>>.prepareTransmission(partitionId: Int): Array<List<Pair<Int, Params>>?>
         = this  .mapIndexed { i, map -> if (i == partitionId) null else map.entries().asSequence().toList() }
@@ -17,11 +18,14 @@ internal fun <Params : Any> List<StateMap<Params>>.prepareFilteredTransmission(
 }
         .map { if (it?.isEmpty() ?: true) null else it }.toTypedArray()
 
+val reachTimer = AtomicLong(0L)
 
 class ExistsUntilOperator<out Params : Any>(
         timeFlow: Boolean, direction: DirectionFormula, weak: Boolean,
         pathOp: Operator<Params>?, reach: Operator<Params>, partition: Channel<Params>
 ) : LazyOperator<Params>(partition, {
+
+    val start = System.currentTimeMillis()
 
     val path = pathOp?.compute()
 
@@ -99,6 +103,8 @@ class ExistsUntilOperator<out Params : Any>(
         received = mapReduce(storage.prepareFilteredTransmission(partitionId, send))
         send.clear()
     } while (received != null)
+
+    reachTimer.addAndGet(System.currentTimeMillis() - start)
 
     result
 

@@ -13,6 +13,9 @@ import com.github.sybila.ode.generator.det.DetOdeModel
 import com.github.sybila.ode.model.OdeModel
 import java.io.PrintStream
 import java.util.*
+import java.util.concurrent.Executor
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import kotlin.system.measureTimeMillis
 
 class NewComponents : Algorithm {
@@ -29,10 +32,11 @@ class NewComponents : Algorithm {
 
         val universes = ArrayDeque<StateMap<Params>>()
         universes.push(TrueOperator(transitionSystem).compute())
+        val executor = Executors.newSingleThreadExecutor()
         while (universes.isNotEmpty()) {
 
             val universe = universes.pop()
-            SingletonChannel(ExplicitOdeModel(transitionSystem, universe).asSingletonPartition()).run {
+            SingletonChannel(ExplicitOdeModel(transitionSystem, universe, executor).asSingletonPartition()).run {
 
                 val pivots = HashStateMap(ff)
                 var uncovered = universe.entries().asSequence().fold(ff) { a, b -> a or b.second }
@@ -88,7 +92,8 @@ class NewComponents : Algorithm {
 
 class ExplicitOdeModel(
         source: Model<Params>,
-        universe: StateMap<Params>
+        universe: StateMap<Params>,
+        executor: ExecutorService
 ) : Model<Params>, Solver<Params> by source {
 
     override val stateCount: Int = source.stateCount
@@ -100,17 +105,32 @@ class ExplicitOdeModel(
 
     init {
         source.run {
-            for (s in universe.states()) {
-                val intoUniverse: (Transition<Params>) -> Transition<Params>? = { t ->
-                    val newBound = t.bound and universe[s] and universe[t.target]
-                    if (newBound.isSat()) t.copy(bound = newBound)
-                    else null
-                }
-                successorCache[s] = s.successors(true).asSequence().map(intoUniverse).toList().filterNotNull()
-                pastSuccessorCache[s] = s.successors(false).asSequence().map(intoUniverse).toList().filterNotNull()
-                predecessorCache[s] = s.predecessors(true).asSequence().map(intoUniverse).toList().filterNotNull()
-                pastPredecessorCache[s] = s.predecessors(false).asSequence().map(intoUniverse).toList().filterNotNull()
+            fun intoUniverse(s: Int): ((Transition<Params>) -> Transition<Params>?) = { t ->
+                val newBound = t.bound and universe[s] and universe[t.target]
+                if (newBound.isSat()) t.copy(bound = newBound)
+                else null
             }
+            val r1 = executor.submit {
+                for (s in universe.states()) {
+                    successorCache[s] = s.successors(true).asSequence().map(intoUniverse(s)).toList().filterNotNull()
+                }
+            }
+            val r2 = executor.submit {
+                for (s in universe.states()) {
+                    pastSuccessorCache[s] = s.successors(false).asSequence().map(intoUniverse(s)).toList().filterNotNull()
+                }
+            }
+            val r3 = executor.submit {
+                for (s in universe.states()) {
+                    predecessorCache[s] = s.predecessors(true).asSequence().map(intoUniverse(s)).toList().filterNotNull()
+                }
+            }
+            val r4 = executor.submit {
+                for (s in universe.states()) {
+                    pastPredecessorCache[s] = s.predecessors(false).asSequence().map(intoUniverse(s)).toList().filterNotNull()
+                }
+            }
+            r1.get(); r2.get(); r3.get(); r4.get()
         }
     }
 
