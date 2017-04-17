@@ -63,8 +63,11 @@ class ExistsUntilOperator<out Params : Any>(
             }
         }
 
+        var iterations = 0
+        val start = System.currentTimeMillis()
         do {
             val iteration = recompute.toList()
+            iterations += iteration.size
             recompute.clear()
             for (state in iteration) {
                 val value = result[state]
@@ -87,8 +90,11 @@ class ExistsUntilOperator<out Params : Any>(
                     }
                 }
             }
+            //if (send.isNotEmpty()) break
         } while (recompute.isNotEmpty())
         //all local computation is done - exchange info with other workers!
+
+        println("$partitionId finished: ${iterations} in ${System.currentTimeMillis() - start}")
 
         received = mapReduce(storage.prepareFilteredTransmission(partitionId, send))
         send.clear()

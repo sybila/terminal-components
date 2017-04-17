@@ -4,7 +4,6 @@ import com.github.sybila.checker.Model
 import com.github.sybila.checker.Partition
 import com.github.sybila.checker.StateMap
 import com.github.sybila.checker.assuming
-import com.github.sybila.checker.channel.connectWithSharedMemory
 import com.github.sybila.checker.map.mutable.ContinuousStateMap
 import com.github.sybila.checker.map.mutable.HashStateMap
 import com.github.sybila.checker.operator.TrueOperator
@@ -43,7 +42,7 @@ class NewDist(
             // compute universe partitioning
             val partitions = (0 until config.parallelism).map {
                 AdaptivePartition(it, config.parallelism, states, restrictedSystem)
-            }.connectWithSharedMemory()
+            }.connectWithNoCopy()//.connectWithSharedMemory()
 
             // find pivots
             var pivotCount = 0
@@ -90,10 +89,14 @@ class NewDist(
                     }?.let { result ->
                 val union = ContinuousStateMap(0, transitionSystem.stateCount, transitionSystem.ff).apply {
                     for (map in result) {
+                        var count = 0
                         for ((s, p) in map.entries()) {
                             this[s] = p
+                            count += 1
                         }
+                        print("$count, ")
                     }
+                    println()
                 }
                 universeQueue.add(union)
             }
@@ -117,11 +120,15 @@ class NewDist(
                     var componentColors = ff
                     val union = ContinuousStateMap(0, transitionSystem.stateCount, transitionSystem.ff).apply {
                         for (map in result) {
+                            var count = 0
                             for ((s, p) in map.entries()) {
                                 this[s] = p
                                 componentColors = componentColors or p
+                                count += 1
                             }
+                            print("$count, ")
                         }
+                        println()
                     }
 
                     counter.push(componentColors)
@@ -144,12 +151,14 @@ class AdaptivePartition(
         model: Model<Params>
 ) : Partition<Params>, Model<Params> by model {
 
-    val partitionSize = (states.size / partitionCount) + 1
+    val blockSize = 1000
+    val partitionSize = Math.max((states.size / partitionCount) + 1, 1000)
 
     override fun Int.owner(): Int {
         val index = states.binarySearch(this)
         if (index < 0) throw IllegalStateException("State not in this universe!")
-        return index / partitionSize
+        return (index / blockSize) % partitionCount
+        //return index / partitionSize
     }
 
 }
