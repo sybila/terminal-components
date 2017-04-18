@@ -38,7 +38,7 @@ class NewDist(
         var pivotTime = 0L
         var initTime = 0L
 
-        println("State count: ${transitionSystem.stateCount}")
+        //println("State count: ${transitionSystem.stateCount}")
 
         while (universeQueue.isNotEmpty()) {
             val universe = universeQueue.poll()
@@ -77,7 +77,7 @@ class NewDist(
             }
             pivotTime += (System.currentTimeMillis() - start)
 
-            println("Pivots: $pivotCount")
+            //println("Pivots: $pivotCount")
 
             val pivotOp = partitions.map { it.run {
                 pivots.restrictToPartition().asOp()
@@ -117,9 +117,9 @@ class NewDist(
                             this[s] = p
                             count += 1
                         }
-                        print("$count, ")
+                        //print("$count, ")
                     }
-                    println()
+                    //println()
                 }
                 universeQueue.add(union)
             }
@@ -155,9 +155,9 @@ class NewDist(
                                 componentColors = componentColors or p
                                 count += 1
                             }
-                            print("$count, ")
+                            //print("$count, ")
                         }
-                        println()
+                        //println()
                     }
 
                     counter.push(componentColors)
@@ -165,12 +165,12 @@ class NewDist(
                 }
             }
         }
-
+/*
         println("Pivot time: $pivotTime")
         println("MC time: $mcTime")
         println("MC interesting time: $mcCount")
         println("Init time: $initTime")
-        println("Reachability: ${reachTimer.get()}")
+        println("Reachability: ${reachTimer.get()}")*/
 
         universeExecutor.shutdown()
 

@@ -63,7 +63,7 @@ class NewLocal(parallelism: Int) : Algorithm {
                     uncovered = uncovered and pivot.params.not()
                 } while (uncovered.isSat())
 
-                println("Pivots: $pivotCount")
+                //println("Pivots: $pivotCount")
 
                 val F = FWD(pivots.asOp())
                 val B = BWD(pivots.asOp())

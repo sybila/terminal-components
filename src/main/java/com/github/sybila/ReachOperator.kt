@@ -3,7 +3,7 @@ package com.github.sybila
 import com.github.sybila.checker.*
 import com.github.sybila.checker.operator.LazyOperator
 import com.github.sybila.huctl.DirectionFormula
-import java.util.HashSet
+import java.util.*
 import java.util.concurrent.atomic.AtomicLong
 
 internal fun <Params : Any> List<StateMap<Params>>.prepareTransmission(partitionId: Int): Array<List<Pair<Int, Params>>?>
@@ -98,7 +98,7 @@ class ExistsUntilOperator<out Params : Any>(
         } while (recompute.isNotEmpty())
         //all local computation is done - exchange info with other workers!
 
-        println("$partitionId finished: ${iterations} in ${System.currentTimeMillis() - start}")
+        //println("$partitionId finished: ${iterations} in ${System.currentTimeMillis() - start}")
 
         received = mapReduce(storage.prepareFilteredTransmission(partitionId, send))
         send.clear()
