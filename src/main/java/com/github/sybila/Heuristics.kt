@@ -2,6 +2,7 @@ package com.github.sybila
 
 import com.github.sybila.checker.Model
 import com.github.sybila.checker.StateMap
+import java.util.*
 
 /**
  * Heuristics algorithm:
@@ -92,7 +93,7 @@ class Heuristics(
                 val stateParams = params and uncovered
                 val magic = stateParams and stateMagic[m]
                 //println("For magic $m ${stateMagic[m]}")
-                if (magic.isSat() && (m > result.magic || magic.weight() > result.magicWeight)) {
+                if (magic.isSat() && (m > result.magic || magic.weight() > result.magicWeight || (magic.weight() == result.magicWeight && state > result.state))) {
                     return MagicResult(state, stateParams, m, magic.weight())
                 }
             }

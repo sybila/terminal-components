@@ -70,12 +70,15 @@ class NewDist(
                     pivotCount += 1
                     val pivot = magic.findMagic(universe, uncovered)
                     pivots[pivot.state] = pivot.params
+                    //println("pivot find: ${pivot.state} ${pivot.magic} ${pivot.magicWeight} ${pivot.params.weight()} ${uncovered.weight()}")
                     uncovered = uncovered and pivot.params.not()
                 } while (uncovered.isSat())
 
                 pivots
             }
             pivotTime += (System.currentTimeMillis() - start)
+
+            //println("pivots: ${pivots.entries().asSequence().map { it.first to it.second.values.cardinality() }.toList()}")
 
             //println("Pivots: $pivotCount")
 

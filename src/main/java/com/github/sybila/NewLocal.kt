@@ -60,9 +60,11 @@ class NewLocal(parallelism: Int) : Algorithm {
                     pivotCount += 1
                     val pivot = magic.findMagic(universe, uncovered)
                     pivots[pivot.state] = pivot.params
+                    //println("pivot find: ${pivot.state} ${pivot.magic} ${pivot.magicWeight} ${pivot.params.weight()} ${uncovered.weight()}")
                     uncovered = uncovered and pivot.params.not()
                 } while (uncovered.isSat())
 
+                //println("pivots: ${pivots.entries().asSequence().map { it.first to it.second.values.cardinality() }.toList()}")
                 //println("Pivots: $pivotCount")
 
                 val F = FWD(pivots.asOp())
@@ -94,6 +96,7 @@ class NewLocal(parallelism: Int) : Algorithm {
                         pending.add(next)
                     }
                 }
+
             }
         }
 
