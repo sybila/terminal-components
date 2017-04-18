@@ -61,8 +61,7 @@ class NewDist(
 
             start = System.currentTimeMillis()
             // find pivots
-            val pivots = magic.findMagic(universe)
-            /*var pivotCount = 0
+            var pivotCount = 0
             val pivots = transitionSystem.run {
                 val pivots = HashStateMap(ff)
                 var uncovered = universe.entries().asSequence().fold(ff) { a, b -> a or b.second }
@@ -76,7 +75,7 @@ class NewDist(
                 } while (uncovered.isSat())
 
                 pivots
-            }*/
+            }
             pivotTime += (System.currentTimeMillis() - start)
 
             //println("pivots: ${pivots.entries().asSequence().map { it.first to it.second.values.cardinality() }.toList()}")

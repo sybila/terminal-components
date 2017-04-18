@@ -232,12 +232,12 @@ class DistAlgorithm(
             var uncovered = universe.entries().asSequence().fold(ff) { a, b -> a or b.second }
 
             do {
-                //val magic = heursitic.findMagic(universe, uncovered)
+                val magic = heursitic.findMagic(universe, uncovered)
 
                 pivotCount += 1
-                //println("Magic: ${magic.magic}")
-                //pivots[magic.state] = magic.params
-                //uncovered = uncovered and magic.params.not()
+                println("Magic: ${magic.magic}")
+                pivots[magic.state] = magic.params
+                uncovered = uncovered and magic.params.not()
 
                 /*val weights = universe.entries().asSequence().map { it.first to (it.second and uncovered).weight() }.toList()
                 val maxWeight: Double = weights.maxBy { it.second }?.second ?: 0.0
