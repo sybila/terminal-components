@@ -52,7 +52,7 @@ class NewLocal(parallelism: Int) : Algorithm {
         override fun call() {
             SingletonChannel(ExplicitOdeModel(transitionSystem, universe, transitionExecutor).asSingletonPartition()).run {
 
-                val pivots = HashStateMap(ff)
+                /*val pivots = HashStateMap(ff)
                 var uncovered = universe.entries().asSequence().fold(ff) { a, b -> a or b.second }
 
                 var pivotCount = 0
@@ -63,7 +63,8 @@ class NewLocal(parallelism: Int) : Algorithm {
                     //println("pivot find: ${pivot.state} ${pivot.magic} ${pivot.magicWeight} ${pivot.params.weight()} ${uncovered.weight()}")
                     uncovered = uncovered and pivot.params.not()
                 } while (uncovered.isSat())
-
+                */
+                val pivots = magic.findMagic(universe)
                 //println("pivots: ${pivots.entries().asSequence().map { it.first to it.second.values.cardinality() }.toList()}")
                 //println("Pivots: $pivotCount")
 

@@ -38,7 +38,7 @@ class NewComponents : Algorithm {
             val universe = universes.pop()
             SingletonChannel(ExplicitOdeModel(transitionSystem, universe, executor).asSingletonPartition()).run {
 
-                val pivots = HashStateMap(ff)
+                /*val pivots = HashStateMap(ff)
                 var uncovered = universe.entries().asSequence().fold(ff) { a, b -> a or b.second }
 
                 var pivotCount = 0
@@ -48,9 +48,9 @@ class NewComponents : Algorithm {
                     pivots[pivot.state] = pivot.params
                     uncovered = uncovered and pivot.params.not()
                 } while (uncovered.isSat())
-
-                println("Pivots: $pivotCount")
-
+                */
+                val pivots = magic.findMagic(universe)
+                
                 val F = FWD(pivots.asOp())
                 val B = BWD(pivots.asOp())
 

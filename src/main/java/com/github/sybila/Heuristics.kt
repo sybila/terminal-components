@@ -2,6 +2,7 @@ package com.github.sybila
 
 import com.github.sybila.checker.Model
 import com.github.sybila.checker.StateMap
+import com.github.sybila.checker.map.mutable.HashStateMap
 import java.util.*
 
 /**
@@ -74,12 +75,35 @@ class Heuristics(
         }
     }
 
-    fun findMagic(universe: StateMap<Params>, uncovered: Params): MagicResult {
-        var result = MagicResult(-1, model.ff, -1, 0.0)
+    private val maxMagic = (magics.maxBy { it.size - 1 }?.size ?: 0) - 1
+
+    fun findMagic(universe: StateMap<Params>): StateMap<Params> {
+        /*var result = MagicResult(-1, model.ff, -1, 0.0)
         for ((state, params) in universe.entries()) {
             result = result.fight(state, params, uncovered)
         }
-        return result
+        return result*/
+        model.run {
+            val result = HashStateMap(ff)
+            var todo = universe.entries().asSequence().fold(ff) { a, b -> a or b.second }
+            for (testMagic in (maxMagic downTo 0)) {
+                for ((state, params) in universe.entries()) {
+                    magics[state].getOrNull(testMagic)?.let { stateMagic ->
+                        val applicableMagic = params and stateMagic and todo
+                        if (applicableMagic.isSat()) {
+                            result[state] = applicableMagic
+                            todo = todo and applicableMagic.not()
+                            if (todo.isNotSat()) {
+                                println("pivots: ${result.entries().asSequence().map { it.first to it.second.weight() }.toList()}")
+                                return result
+                            }
+                        }
+                    }
+                }
+            }
+            //if not magic has been found in the world, we have to improvise a little...
+            error("no magic")
+        }
     }
 
     private fun MagicResult.fight(state: Int, params: Params, uncovered: Params): MagicResult {
