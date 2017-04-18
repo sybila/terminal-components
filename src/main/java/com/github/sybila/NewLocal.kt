@@ -17,6 +17,7 @@ import java.util.concurrent.Future
 class NewLocal(parallelism: Int) : Algorithm {
 
     val universeExecutor = Executors.newFixedThreadPool(parallelism)!!
+    val transitionExecutor = Executors.newFixedThreadPool(parallelism)!!
     private val pending = ArrayDeque<Future<Unit>>()
 
     override fun compute(model: OdeModel, config: Config, logStream: PrintStream?): Count<Params> {
@@ -37,6 +38,7 @@ class NewLocal(parallelism: Int) : Algorithm {
         } while (wait != null)
 
         universeExecutor.shutdown()
+        transitionExecutor.shutdown()
 
         return counter
     }
@@ -48,7 +50,7 @@ class NewLocal(parallelism: Int) : Algorithm {
             private val universe: StateMap<Params>): Callable<Unit> {
 
         override fun call() {
-            SingletonChannel(ExplicitOdeModel(transitionSystem, universe, universeExecutor).asSingletonPartition()).run {
+            SingletonChannel(ExplicitOdeModel(transitionSystem, universe, transitionExecutor).asSingletonPartition()).run {
 
                 val pivots = HashStateMap(ff)
                 var uncovered = universe.entries().asSequence().fold(ff) { a, b -> a or b.second }

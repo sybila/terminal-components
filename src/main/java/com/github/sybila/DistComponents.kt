@@ -2,11 +2,9 @@ package com.github.sybila
 
 import com.github.sybila.checker.*
 import com.github.sybila.checker.channel.connectWithSharedMemory
-import com.github.sybila.checker.map.RangeStateMap
 import com.github.sybila.checker.map.mutable.ContinuousStateMap
 import com.github.sybila.checker.map.mutable.HashStateMap
 import com.github.sybila.checker.operator.TrueOperator
-import com.github.sybila.checker.partition.asUniformPartitions
 import com.github.sybila.huctl.Formula
 import com.github.sybila.ode.generator.det.DetOdeModel
 import com.github.sybila.ode.generator.det.RectangleSet
@@ -14,9 +12,6 @@ import com.github.sybila.ode.model.OdeModel
 import java.io.PrintStream
 import java.util.*
 import java.util.concurrent.Executors
-import java.util.concurrent.Future
-import java.util.stream.Collectors
-import kotlin.collections.ArrayList
 
 /*fun Params.weight() = this.values.cardinality()*//*this.fold(0.0) { acc, rect ->
     acc + rect.asIntervals().map { Math.abs(it[1] - it[0]) }.fold(1.0) { acc, dim -> acc * dim }

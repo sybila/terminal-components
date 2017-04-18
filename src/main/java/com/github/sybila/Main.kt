@@ -134,12 +134,14 @@ fun main(args: Array<String>) {
         CheckerStats.reset(logStream)
 
 
-        /*val algorithm = if (config.algorithm == AlgorithmType.LOCAL)
-            LocalAlgorithm(config.parallelism, !config.disableHeuristic)
-        else
-            DistAlgorithm(config.parallelism)*/
+        if (config.disableHeuristic) error("Heuristic cannot be disabled in this version.")
 
-        val algorithm = NewDist(config.parallelism)
+        val algorithm = if (config.algorithm == AlgorithmType.LOCAL)
+            NewLocal(config.parallelism)
+        else
+            NewDist(config.parallelism)
+
+        //val algorithm = NewDist(config.parallelism)
 
         val counter = algorithm.compute(odeModel, config, logStream)
 
