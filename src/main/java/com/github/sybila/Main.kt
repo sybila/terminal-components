@@ -84,12 +84,10 @@ data class Config(
         @field:Option(
                 name = "--heuristic",
                 usage =
-"""
-Define the type of used pivot selection heuristic.
+"""Define the type of used pivot selection heuristic.
     none - select the first available state
     cardinality - select the state with biggest parameter set
-    cardinality_structure - select the state which is closest to forming a component and has the biggest parameter set
-"""
+    cardinality_structure - select the state which is closest to forming a component and has the biggest parameter set"""
         )
         var heuristics: HeuristicType = HeuristicType.CARDINALITY_STRUCTURE,
         @field:Option(
@@ -100,12 +98,10 @@ Define the type of used pivot selection heuristic.
         @field:Option(
                 name = "--partitioning",
                 usage =
-"""
-Defines the type of partitioning:
+"""Defines the type of partitioning:
     (-inf, -1] - sensible default (block partitioning with parallelism+1 blocks per dimension)
     0 - uniform partitioning with parallelism blocks
-    [1, inf) - number of blocks per dimension
-"""
+    [1, inf) - number of blocks per dimension"""
         )
         var partitioning: Int = -1
 )

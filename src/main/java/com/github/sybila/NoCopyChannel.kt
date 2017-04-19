@@ -3,7 +3,6 @@ package com.github.sybila
 import com.github.sybila.checker.Channel
 import com.github.sybila.checker.CheckerStats
 import com.github.sybila.checker.Partition
-import com.github.sybila.checker.channel.SharedMemChannel
 import java.util.*
 import java.util.concurrent.CyclicBarrier
 
