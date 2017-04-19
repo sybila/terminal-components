@@ -32,7 +32,8 @@ internal fun String.readStream(): PrintStream? = when (this) {
 }
 
 enum class ResultType { HUMAN, JSON }
-enum class AlgorithmType { LOCAL, DIST }
+enum class AlgorithmType { LOCAL, DIST, BASIC }
+enum class HeuristicType { NONE, CARDINALITY, CARDINALITY_STRUCTURE }
 
 data class Config(
         @field:Option(
@@ -81,20 +82,32 @@ data class Config(
         )
         var parallelism: Int = Runtime.getRuntime().availableProcessors(),
         @field:Option(
-                name = "--disable-heuristic",
-                usage = "Use to disable the set size state choosing heuristic"
+                name = "--heuristic",
+                usage =
+"""
+Define the type of used pivot selection heuristic.
+    none - select the first available state
+    cardinality - select the state with biggest parameter set
+    cardinality_structure - select the state which is closest to forming a component and has the biggest parameter set
+"""
         )
-        var disableHeuristic: Boolean = false,
+        var heuristics: HeuristicType = HeuristicType.CARDINALITY_STRUCTURE,
         @field:Option(
-                name = "--algorithm-type",
+                name = "--algorithm",
                 usage = "Specify the type of the algorithm."
         )
-        var algorithm: AlgorithmType = AlgorithmType.LOCAL,
+        var algorithm: AlgorithmType = AlgorithmType.BASIC,
         @field:Option(
-                name = "--blocks-per-dimension",
-                usage = "The number of blocks per each dimension the state space is partitioned into."
+                name = "--partitioning",
+                usage =
+"""
+Defines the type of partitioning:
+    (-inf, -1] - sensible default (block partitioning with parallelism+1 blocks per dimension)
+    0 - uniform partitioning with parallelism blocks
+    [1, inf) - number of blocks per dimension
+"""
         )
-        var blocksPerDimension: Int = 1
+        var partitioning: Int = -1
 )
 
 fun main(args: Array<String>) {
@@ -133,15 +146,11 @@ fun main(args: Array<String>) {
         SolverStats.reset(logStream)
         CheckerStats.reset(logStream)
 
-
-        if (config.disableHeuristic) error("Heuristic cannot be disabled in this version.")
-
-        val algorithm = if (config.algorithm == AlgorithmType.LOCAL)
-            NewLocal(config.parallelism)
-        else
-            NewDist(config.parallelism)
-
-        //val algorithm = NewDist(config.parallelism)
+        val algorithm = when(config.algorithm) {
+            AlgorithmType.BASIC -> NewComponents()
+            AlgorithmType.LOCAL -> NewLocal(config.parallelism)
+            AlgorithmType.DIST -> NewDist(config.parallelism)
+        }
 
         val counter = algorithm.compute(odeModel, config, logStream)
 

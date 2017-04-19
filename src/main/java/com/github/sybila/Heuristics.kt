@@ -24,9 +24,44 @@ import java.util.*
  *
  */
 
-class Heuristics(
+fun Params.weight(): Double = this.values.cardinality().toDouble()
+
+interface Heuristics {
+    fun findMagic(universe: StateMap<Params>, uncovered: Params): Pair<Int, Params>
+}
+
+class None(
         private val model: Model<Params>
-) {
+) : Heuristics {
+
+    override fun findMagic(universe: StateMap<Params>, uncovered: Params): Pair<Int, Params> {
+        model.run {
+            val r = universe.entries().asSequence().first { (it.second and uncovered).isSat() }
+            return r.first to (r.second and uncovered)
+        }
+    }
+
+}
+
+class Cardinality(
+        private val model: Model<Params>
+) : Heuristics {
+
+    override fun findMagic(universe: StateMap<Params>, uncovered: Params): Pair<Int, Params> {
+        model.run {
+            val weights = universe.entries().asSequence().map { it.first to (it.second and uncovered).weight() }.toList()
+            val maxWeight = weights.maxBy { it.second }!!.second
+            val maxWeights = weights.filter { it.second == maxWeight }.sortedBy { it.first }
+            val state = maxWeights[maxWeights.size / 2].first
+            return state to (universe[state] and uncovered)
+        }
+    }
+
+}
+
+class Magic(
+        private val model: Model<Params>
+) : Heuristics {
 
     data class MagicResult(
             val state: Int,
@@ -74,12 +109,12 @@ class Heuristics(
         }
     }
 
-    fun findMagic(universe: StateMap<Params>, uncovered: Params): MagicResult {
+    override fun findMagic(universe: StateMap<Params>, uncovered: Params): Pair<Int, Params> {
         var result = MagicResult(-1, model.ff, -1, 0.0)
         for ((state, params) in universe.entries()) {
             result = result.fight(state, params, uncovered)
         }
-        return result
+        return result.state to result.params
     }
 
     private fun MagicResult.fight(state: Int, params: Params, uncovered: Params): MagicResult {
@@ -104,7 +139,7 @@ class Heuristics(
         return result
     }
 
-    fun MagicResult.fight(other: MagicResult): MagicResult {
+    /*fun MagicResult.fight(other: MagicResult): MagicResult {
         return if (this.magic > other.magic) {
             this
         } else if (this.magic < other.magic) {
@@ -115,6 +150,6 @@ class Heuristics(
             // this.magic == other.magic && this.magicWeight < other.magicWeight
             other
         }
-    }
+    }*/
 
 }

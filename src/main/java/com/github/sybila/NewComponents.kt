@@ -13,7 +13,6 @@ import com.github.sybila.ode.generator.det.DetOdeModel
 import com.github.sybila.ode.model.OdeModel
 import java.io.PrintStream
 import java.util.*
-import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.system.measureTimeMillis
@@ -28,7 +27,11 @@ class NewComponents : Algorithm {
 
         val transitionSystem = DetOdeModel(model).asSingletonPartition()
         val counter = Count(transitionSystem)
-        val magic = Heuristics(transitionSystem)
+        val magic = when (config.heuristics) {
+            HeuristicType.NONE -> None(transitionSystem)
+            HeuristicType.CARDINALITY -> Cardinality(transitionSystem)
+            HeuristicType.CARDINALITY_STRUCTURE -> Magic(transitionSystem)
+        }
 
         val universes = ArrayDeque<StateMap<Params>>()
         universes.push(TrueOperator(transitionSystem).compute())
@@ -44,9 +47,9 @@ class NewComponents : Algorithm {
                 var pivotCount = 0
                 do {
                     pivotCount += 1
-                    val pivot = magic.findMagic(universe, uncovered)
-                    pivots[pivot.state] = pivot.params
-                    uncovered = uncovered and pivot.params.not()
+                    val (pivot, params) = magic.findMagic(universe, uncovered)
+                    pivots[pivot] = params
+                    uncovered = uncovered and params.not()
                 } while (uncovered.isSat())
 
                 println("Pivots: $pivotCount")

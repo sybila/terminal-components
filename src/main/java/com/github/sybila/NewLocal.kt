@@ -24,7 +24,11 @@ class NewLocal(parallelism: Int) : Algorithm {
 
         val transitionSystem = DetOdeModel(model).asSingletonPartition()
         val counter = Count(transitionSystem)
-        val magic = Heuristics(transitionSystem)
+        val magic = when (config.heuristics) {
+            HeuristicType.NONE -> None(transitionSystem)
+            HeuristicType.CARDINALITY -> Cardinality(transitionSystem)
+            HeuristicType.CARDINALITY_STRUCTURE -> Magic(transitionSystem)
+        }
 
         val allStates = transitionSystem.run { TrueOperator(this).compute() }
 
@@ -58,14 +62,10 @@ class NewLocal(parallelism: Int) : Algorithm {
                 var pivotCount = 0
                 do {
                     pivotCount += 1
-                    val pivot = magic.findMagic(universe, uncovered)
-                    pivots[pivot.state] = pivot.params
-                    //println("pivot find: ${pivot.state} ${pivot.magic} ${pivot.magicWeight} ${pivot.params.weight()} ${uncovered.weight()}")
-                    uncovered = uncovered and pivot.params.not()
+                    val (pivot, params) = magic.findMagic(universe, uncovered)
+                    pivots[pivot] = params
+                    uncovered = uncovered and params.not()
                 } while (uncovered.isSat())
-
-                //println("pivots: ${pivots.entries().asSequence().map { it.first to it.second.values.cardinality() }.toList()}")
-                //println("Pivots: $pivotCount")
 
                 val F = FWD(pivots.asOp())
                 val B = BWD(pivots.asOp())
