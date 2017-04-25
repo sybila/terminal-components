@@ -34,6 +34,17 @@ class None(
         private val model: Model<Params>
 ) : Heuristics {
 
+    init {
+        model.run {
+            (0..stateCount).forEach { state ->
+                state.successors(true)
+                state.predecessors(true)
+                state.successors(false)
+                state.predecessors(false)
+            }
+        }
+    }
+
     override fun findMagic(universe: StateMap<Params>, uncovered: Params): Pair<Int, Params> {
         model.run {
             val r = universe.entries().asSequence().first { (it.second and uncovered).isSat() }
@@ -46,6 +57,17 @@ class None(
 class Cardinality(
         private val model: Model<Params>
 ) : Heuristics {
+
+    init {
+        model.run {
+            (0..stateCount).forEach { state ->
+                state.successors(true)
+                state.predecessors(true)
+                state.successors(false)
+                state.predecessors(false)
+            }
+        }
+    }
 
     override fun findMagic(universe: StateMap<Params>, uncovered: Params): Pair<Int, Params> {
         model.run {
@@ -62,6 +84,17 @@ class Cardinality(
 class Magic(
         private val model: Model<Params>
 ) : Heuristics {
+
+    init {
+        model.run {
+            (0..stateCount).forEach { state ->
+                state.successors(true)
+                state.predecessors(true)
+                state.successors(false)
+                state.predecessors(false)
+            }
+        }
+    }
 
     data class MagicResult(
             val state: Int,
