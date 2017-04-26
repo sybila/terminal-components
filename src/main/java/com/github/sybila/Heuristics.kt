@@ -36,7 +36,7 @@ class None(
 
     init {
         model.run {
-            (0..stateCount).forEach { state ->
+            (0 until stateCount).forEach { state ->
                 state.successors(true)
                 state.predecessors(true)
                 state.successors(false)
@@ -60,7 +60,7 @@ class Cardinality(
 
     init {
         model.run {
-            (0..stateCount).forEach { state ->
+            (0 until stateCount).forEach { state ->
                 state.successors(true)
                 state.predecessors(true)
                 state.successors(false)
@@ -87,7 +87,7 @@ class Magic(
 
     init {
         model.run {
-            (0..stateCount).forEach { state ->
+            (0 until stateCount).forEach { state ->
                 state.successors(true)
                 state.predecessors(true)
                 state.successors(false)

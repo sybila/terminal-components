@@ -4,7 +4,7 @@ import com.github.sybila.checker.Channel
 import com.github.sybila.checker.Operator
 import com.github.sybila.checker.StateMap
 import com.github.sybila.checker.operator.ComplementOperator
-import com.github.sybila.checker.operator.ExistsUntilOperator
+//import com.github.sybila.checker.operator.ExistsUntilOperator
 import com.github.sybila.huctl.DirectionFormula
 
 // --------------------- GENERAL HELPER FUNCTIONS --------------------------
