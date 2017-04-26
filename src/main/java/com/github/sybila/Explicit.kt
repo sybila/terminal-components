@@ -1,7 +1,6 @@
 package com.github.sybila
 
 import com.github.sybila.ode.generator.NodeEncoder
-import com.github.sybila.ode.generator.bool.BoolOdeModel
 import com.github.sybila.ode.generator.rect.RectangleOdeModel
 import com.github.sybila.ode.model.OdeModel
 import com.github.sybila.ode.model.Parser
@@ -9,7 +8,7 @@ import com.github.sybila.ode.model.computeApproximation
 import java.io.File
 import java.util.*
 
-fun OdeModel.forEachParameter(action: (OdeModel) -> Unit) {
+fun OdeModel.forEachParameter(action: () -> Unit) {
 
     val stateCoder = NodeEncoder(this)
 
@@ -58,20 +57,20 @@ fun OdeModel.forEachParameter(action: (OdeModel) -> Unit) {
         resultArray
     }
 
-    fun substitute(model: OdeModel, valuations: List<DoubleArray>, action: (OdeModel) -> Unit) {
-        if (model.parameters.isEmpty()) action(model)
+    fun substitute(remaining: Int, valuations: List<DoubleArray>, action: () -> Unit) {
+        if (remaining == 0) action()
         else {
             for (value in valuations.last()) {
                 if (value == 0.0) continue
                 substitute(
-                        model.substituteLastParameter(value),
+                        remaining - 1,
                         valuations.dropLast(1), action
                 )
             }
         }
     }
 
-    substitute(this, valuations, action)
+    substitute(this.parameters.size, valuations, action)
 }
 
 fun OdeModel.substituteLastParameter(value: Double): OdeModel = this.copy(
@@ -95,26 +94,13 @@ fun main(args: Array<String>) {
 
     val f = RectangleOdeModel(odeModel)
 
-    val states = Array<List<Int>>(f.stateCount) { emptyList() }
+    println("Start counting...")
 
-    val tarjan = Tarjan()
-
-    var max = 0
-
-    odeModel.forEachParameter { model ->
-        BoolOdeModel(model).run {
-            // create state space
-            for (s in 0 until stateCount) {
-                states[s] = s.successors(true).asSequence().map { it.target }.toList()
-            }
-
-            val result = tarjan.getSCComponents(states)
-            if (result in (max + 1)..9) {
-                max = result
-            }
-        }
+    var count = 0L
+    odeModel.forEachParameter {
+        count += 1
     }
 
-    println("Done")
+    println("Done. Valuation count: $count")
     //println("Found max $max components")
 }
