@@ -12,7 +12,6 @@ import com.github.sybila.ode.generator.rect.Rectangle
 import com.github.sybila.ode.generator.rect.RectangleOdeModel
 import com.github.sybila.ode.model.OdeModel
 import java.io.PrintStream
-import java.util.*
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.concurrent.atomic.AtomicLong
@@ -68,10 +67,12 @@ class LocalAlgorithm(
         private val useHeuristics: Boolean
 ) : Algorithm {
 
-    override fun compute(model: OdeModel, config: Config, logStream: PrintStream?): Count<Params> {
+    override fun compute(model: OdeModel, config: Config, logStream: PrintStream?): List<StateMap<Params>> {
         val transitionSystem = SingletonChannel(RectangleOdeModel(model,
                 createSelfLoops = !config.disableSelfLoops
         ).asSingletonPartition())
+
+        println("Memory: "+Runtime.getRuntime().maxMemory())
 
         transitionSystem.run {
 
@@ -79,6 +80,7 @@ class LocalAlgorithm(
             // hence if we pre-compute all transitions before actually starting the algorithm,
             // we can safely perform operations in parallel.
             (0 until stateCount).forEach {
+                if (it % 10000 == 0) println("State computing: $it / $stateCount")
                 it.predecessors(true)
                 it.predecessors(false)
                 it.successors(true)
@@ -88,16 +90,22 @@ class LocalAlgorithm(
             logStream?.println("Transition system computed. Starting component search...")
 
             // counter is synchronized
-            val counter = Count(this)
+            val components = ComponentStore(transitionSystem)
+            val counter = Count(transitionSystem)
 
             // compute results
             val allStates = TrueOperator(this)
-            startAction(allStates, counter)
+            startAction(allStates, counter, components)
 
             blockWhilePending()
             executor.shutdown()
 
-            return counter
+            return components.getComponentMapping(counter)
+            /*val result = ArrayList<StateMap<Params>>(counter.size)
+            for (i in 0 until counter.size) {
+                result.add(SingletonStateMap(0, counter[i], counter[i]))
+            }
+            return result*/
         }
     }
 
@@ -106,9 +114,10 @@ class LocalAlgorithm(
     private val pending = ArrayList<Future<*>>()
 
     // This is the generic version of the terminal ssc algorithm:
-    fun <T: Any> Channel<T>.paramRecursionTSCC(op: Operator<T>, paramCounts: Count<T>) {
+    fun <T: Any> Channel<T>.paramRecursionTSCC(op: Operator<T>, counter: Count<T>, components: ComponentStore<T>) {
         var universe = op
         while (!isResultEmpty(universe)) {
+            println("Universe size: ${universe.compute().entries().asSequence().count()}")
             val (v, vParams) = if (useHeuristics) choose(universe) else chooseSimple(universe)
 
             // limit that restricts the whole state space to parameters associated with v
@@ -125,8 +134,12 @@ class LocalAlgorithm(
             // will be empty if v is on a terminal cycle
             val F_minus_B = And(F, Not(B))
 
-            if (!isResultEmpty(F_minus_B)) {
-                startAction(F_minus_B, paramCounts)
+            val continueWith = F_minus_B.compute().entries().asSequence().fold(ff) { acc, (_, p) -> acc or p }
+
+            components.push(F.compute(), continueWith.not())
+
+            if (continueWith.isSat()) {
+                startAction(F_minus_B, counter, components)
             }
 
             // BB - B' - All valid predecessors of F
@@ -141,8 +154,8 @@ class LocalAlgorithm(
             }
 
             if (componentParams.isSat()) {
-                paramCounts.push(componentParams)
-                startAction(V_minus_BB, paramCounts)
+                counter.push(componentParams)
+                startAction(V_minus_BB, counter, components)
             }
 
             // cut the processed area out of the universe and repeat
@@ -161,11 +174,11 @@ class LocalAlgorithm(
         }
     }
 
-    fun <T: Any> Channel<T>.startAction(states: Operator<T>, paramCounts: Count<T>) {
+    fun <T: Any> Channel<T>.startAction(states: Operator<T>, counter: Count<T>, components: ComponentStore<T>) {
         // start new task in an executor and save it into pending
         synchronized(pending) {
             val future = executor.submit {
-                paramRecursionTSCC(states, paramCounts)
+                paramRecursionTSCC(states, counter, components)
             }
             pending.add(future)
             printActionProgress()

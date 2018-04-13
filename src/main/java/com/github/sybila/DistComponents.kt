@@ -10,6 +10,7 @@ import java.io.PrintStream
 import java.util.*
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
+import kotlin.collections.HashSet
 
 fun Params.weight() = this.fold(0.0) { acc, rect ->
     acc + rect.asIntervals().map { Math.abs(it[1] - it[0]) }.fold(1.0) { acc, dim -> acc * dim }
@@ -25,7 +26,7 @@ class DistAlgorithm(
         private val parallelism: Int
 ) : Algorithm {
 
-    override fun compute(model: OdeModel, config: Config, logStream: PrintStream?): Count<Params> {
+    override fun compute(model: OdeModel, config: Config, logStream: PrintStream?): List<StateMap<Params>> {
 
         val transitionSystem = RectangleOdeModel(model)
 
@@ -47,19 +48,20 @@ class DistAlgorithm(
 
             val initialSpace = channels.flatRun { fullStateSpace.restrictToPartition() }
 
-            val counter = Count(this)
+            val components = ComponentStore(transitionSystem)
+            val count = Count(transitionSystem)
 
-            paramRecursionTSCC(channels, initialSpace, counter)
+            paramRecursionTSCC(channels, initialSpace, count, components)
             executor.shutdown()
 
-            return counter
+            return components.getComponentMapping(count)
         }
 
     }
 
     val executor = Executors.newFixedThreadPool(parallelism)!!
 
-    fun Model<Params>.paramRecursionTSCC(channels: List<Channel<Params>>, states: List<StateMap<Params>>, counter: Count<Params>) {
+    fun Model<Params>.paramRecursionTSCC(channels: List<Channel<Params>>, states: List<StateMap<Params>>, counter: Count<Params>, components: ComponentStore<Params>) {
         var universe = states
 
         fun List<StateMap<Params>>.isStrongEmpty() = this.zip(channels).map { (map, solver) ->
@@ -127,8 +129,16 @@ class DistAlgorithm(
                 And(F, Not(B))
             }
 
+            val continueWith = F_minus_B.compute().asSequence().flatMap { it.entries().asSequence() }
+                    .fold<Pair<Int, Params>, Params>(HashSet()) { acc, (_, params) -> acc or params}
+
+            for (x in F.compute()) {
+                components.push(x, continueWith.not())
+            }
+
+
             F_minus_B.compute().assuming { !it.isStrongEmpty() }?.let {
-                paramRecursionTSCC(channels, it, counter)
+                paramRecursionTSCC(channels, it, counter, components)
             }
 
             val BB = universe.zip(F).zipRun(channels) { (universe, F) ->
@@ -151,7 +161,7 @@ class DistAlgorithm(
 
             if (componentParams.isSat()) {
                 counter.push(componentParams)
-                paramRecursionTSCC(channels, V_minus_BB_result, counter)
+                paramRecursionTSCC(channels, V_minus_BB_result, counter, components)
             }
 
             universe = universe.zip(limits).zipRun(channels) { (universe, limit) ->

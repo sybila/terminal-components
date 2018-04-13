@@ -2,7 +2,6 @@ package com.github.sybila
 
 import com.github.sybila.checker.CheckerStats
 import com.github.sybila.checker.StateMap
-import com.github.sybila.checker.map.SingletonStateMap
 import com.github.sybila.checker.solver.SolverStats
 import com.github.sybila.ode.generator.rect.Rectangle
 import com.github.sybila.ode.model.OdeModel
@@ -18,7 +17,8 @@ import java.util.*
 typealias Params = MutableSet<Rectangle>
 
 interface Algorithm {
-    fun compute(model: OdeModel, config: Config, logStream: PrintStream?): Count<Params>
+    /* Returns a list of states by component count. First map = 1 component. Second map = two components, etc... */
+    fun compute(model: OdeModel, config: Config, logStream: PrintStream?): List<StateMap<Params>>
 }
 
 // ---------------------- PLUMBING TO PUT IT ALL TOGETHER ------------------------
@@ -128,24 +128,26 @@ fun main(args: Array<String>) {
         else
             DistAlgorithm(config.parallelism)
 
-        val counter = algorithm.compute(odeModel, config, logStream)
+        val components = algorithm.compute(odeModel, config, logStream)
 
         logStream?.println("Component search done.")
-        logStream?.println("Max number of components: ${counter.max}.")
-        logStream?.println("Min number of components: ${counter.min}.")
+        logStream?.println("Max number of components: ${components.size}.")
 
         SolverStats.printGlobal()
         CheckerStats.printGlobal()
 
         config.resultOutput.readStream()?.use { outStream ->
             if (config.resultType == ResultType.HUMAN) {
-                for (i in 0 until counter.size) {        // print countTSCC for each parameter set
-                    outStream.println("${i + 1} terminal components: ${counter[i].map { it.asIntervals() }}")
+                for (i in components.indices) {        // print countTSCC for each parameter set
+                    val stateMap = components[i].entries().asSequence().map { (k, v) ->
+                        "$k: ${v.map { it.asIntervals() }}"
+                    }
+                    outStream.println("${i + 1} terminal components: $stateMap")
                 }
             } else {
                 val result: MutableMap<String, List<StateMap<Set<Rectangle>>>> = HashMap()
-                for (i in 0 until counter.size) {
-                    result["${i + 1}_terminal_components"] = listOf(SingletonStateMap(0, counter[i], counter[i]))
+                for (i in 0 until components.size) {
+                    result["${i+1}_terminal_components"] = listOf(components[i])
                 }
 
                 outStream.println(printJsonRectResults(odeModel, result))
