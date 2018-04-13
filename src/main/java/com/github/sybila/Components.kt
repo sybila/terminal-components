@@ -72,7 +72,7 @@ class LocalAlgorithm(
                 createSelfLoops = !config.disableSelfLoops
         ).asSingletonPartition())
 
-        println("Memory: "+Runtime.getRuntime().maxMemory())
+        //println("Memory: "+Runtime.getRuntime().maxMemory())
 
         transitionSystem.run {
 
@@ -80,7 +80,7 @@ class LocalAlgorithm(
             // hence if we pre-compute all transitions before actually starting the algorithm,
             // we can safely perform operations in parallel.
             (0 until stateCount).forEach {
-                if (it % 10000 == 0) println("State computing: $it / $stateCount")
+                //if (it % 10000 == 0) println("State computing: $it / $stateCount")
                 it.predecessors(true)
                 it.predecessors(false)
                 it.successors(true)
@@ -117,7 +117,7 @@ class LocalAlgorithm(
     fun <T: Any> Channel<T>.paramRecursionTSCC(op: Operator<T>, counter: Count<T>, components: ComponentStore<T>) {
         var universe = op
         while (!isResultEmpty(universe)) {
-            println("Universe size: ${universe.compute().entries().asSequence().count()}")
+            //println("Universe size: ${universe.compute().entries().asSequence().count()}")
             val (v, vParams) = if (useHeuristics) choose(universe) else chooseSimple(universe)
 
             // limit that restricts the whole state space to parameters associated with v
