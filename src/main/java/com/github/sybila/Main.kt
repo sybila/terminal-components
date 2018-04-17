@@ -142,12 +142,12 @@ fun main(args: Array<String>) {
                     val stateMap = components[i].entries().asSequence().map { (k, v) ->
                         "$k: ${v.map { it.asIntervals() }}"
                     }
-                    outStream.println("${i + 1} terminal components: $stateMap")
+                    outStream.println("${i + 1} attractors: $stateMap")
                 }
             } else {
                 val result: MutableMap<String, List<StateMap<Set<Rectangle>>>> = HashMap()
                 for (i in 0 until components.size) {
-                    result["${i+1}_terminal_components"] = listOf(components[i])
+                    result["${i+1}_attractor(s)"] = listOf(components[i])
                 }
 
                 outStream.println(printJsonRectResults(odeModel, result))
