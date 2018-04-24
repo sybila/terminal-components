@@ -68,9 +68,10 @@ class LocalAlgorithm(
 ) : Algorithm {
 
     override fun compute(model: OdeModel, config: Config, logStream: PrintStream?): List<StateMap<Params>> {
-        val transitionSystem = SingletonChannel(RectangleOdeModel(model,
+        /*val transitionSystem = SingletonChannel(RectangleOdeModel(model,
                 createSelfLoops = !config.disableSelfLoops
-        ).asSingletonPartition())
+        ).asSingletonPartition())*/
+        val transitionSystem = SingletonChannel(Plyusnina.asSingletonPartition())
 
         //println("Memory: "+Runtime.getRuntime().maxMemory())
 
@@ -80,7 +81,7 @@ class LocalAlgorithm(
             // hence if we pre-compute all transitions before actually starting the algorithm,
             // we can safely perform operations in parallel.
             (0 until stateCount).forEach {
-                //if (it % 10000 == 0) println("State computing: $it / $stateCount")
+                if (it % 100 == 0) println("State computing: $it / $stateCount")
                 it.predecessors(true)
                 it.predecessors(false)
                 it.successors(true)
