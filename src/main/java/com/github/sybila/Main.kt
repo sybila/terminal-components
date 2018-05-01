@@ -96,8 +96,10 @@ fun main(args: Array<String>) {
     val config = Config()
     val parser = CmdLineParser(config)
 
+    val swap = arrayOf("-r", "json", "-ro", "plyusnina.json", "-m", "test/model_2D_1P_400R.bio")
+
     try {
-        parser.parseArgument(*args)
+        parser.parseArgument(*swap)
 
         if (config.help) {
             parser.printUsage(System.err)
@@ -111,9 +113,9 @@ fun main(args: Array<String>) {
 
         val modelFile = config.model ?: throw IllegalArgumentException("Missing model file.")
 
-        val odeModel = Parser().parse(modelFile).computeApproximation(
+        val odeModel = PLYUSNINA/*Parser().parse(modelFile).computeApproximation(
                 fast = config.fastApproximation, cutToRange = config.cutToRange
-        )
+        )*/
 
         logStream?.println("Configuration loaded. Computing transition system")
 

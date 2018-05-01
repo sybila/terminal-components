@@ -71,6 +71,7 @@ class LocalAlgorithm(
         /*val transitionSystem = SingletonChannel(RectangleOdeModel(model,
                 createSelfLoops = !config.disableSelfLoops
         ).asSingletonPartition())*/
+        println("Compute!")
         val transitionSystem = SingletonChannel(Plyusnina.asSingletonPartition())
 
         //println("Memory: "+Runtime.getRuntime().maxMemory())

@@ -1,72 +1,76 @@
 package com.github.sybila
 
-import com.github.sybila.ode.generator.AbstractOdeFragment
-import com.github.sybila.ode.generator.rect.Rectangle
-import com.github.sybila.ode.generator.rect.RectangleSolver
 import com.github.sybila.ode.model.OdeModel
+import java.util.concurrent.Executors
+import java.util.concurrent.ThreadPoolExecutor
+import kotlin.concurrent.thread
 
-@Suppress("FunctionName", "NOTHING_TO_INLINE")
-object Plyusnina : AbstractOdeFragment<Params>(OdeModel(
+
+private val thres = 6
+val PLYUSNINA = OdeModel(
         parameters = emptyList(),
         variables = listOf(
                 OdeModel.Variable(
                         name = "Hi",
                         range = 0.0 to 10.0,
-                        thresholds = split(5, 0.0, 10.0),
+                        thresholds = split(thres, 0.0, 10.0),
                         varPoints = null,
                         equation = emptyList()
                 ),
                 OdeModel.Variable(
                         name = "Ho",
                         range = 0.0 to 10.0,
-                        thresholds = split(5, 0.0, 10.0),
+                        thresholds = split(thres, 0.0, 10.0),
                         varPoints = null,
                         equation = emptyList()
                 ),
                 OdeModel.Variable(
                         name = "ATP",
                         range = 0.0 to 1.0,
-                        thresholds = split(5, 0.0, 1.0),
+                        thresholds = split(thres, 0.0, 1.0),
                         varPoints = null,
                         equation = emptyList()
                 ),
                 OdeModel.Variable(
                         name = "NADH",
                         range = 0.0 to 1.0,
-                        thresholds = split(5, 0.0, 1.0),
+                        thresholds = split(thres, 0.0, 1.0),
                         varPoints = null,
                         equation = emptyList()
                 ),
                 OdeModel.Variable(
                         name = "NADPH",
                         range = 0.0 to 1.0,
-                        thresholds = split(5, 0.0, 1.0),
+                        thresholds = split(thres, 0.0, 1.0),
                         varPoints = null,
                         equation = emptyList()
                 ),
                 OdeModel.Variable(
                         name = "PQH2",
                         range = 0.0 to 1.0,
-                        thresholds = split(5, 0.0, 1.0),
+                        thresholds = split(thres, 0.0, 1.0),
                         varPoints = null,
                         equation = emptyList()
                 ),
                 OdeModel.Variable(
                         name = "fd",
                         range = 0.0 to 2.0,
-                        thresholds = split(5, 0.0, 2.0),
+                        thresholds = split(thres, 0.0, 2.0),
                         varPoints = null,
                         equation = emptyList()
                 ),
                 OdeModel.Variable(
                         name = "pc",
                         range = 0.0 to 2.0,
-                        thresholds = split(5, 0.0, 2.0),
+                        thresholds = split(thres, 0.0, 2.0),
                         varPoints = null,
                         equation = emptyList()
                 )
         )
-), true, RectangleSolver(Rectangle(doubleArrayOf()))) {
+)
+
+@Suppress("FunctionName", "NOTHING_TO_INLINE")
+object Plyusnina : NoParamOdeFragment(PLYUSNINA, true) {
 
     private const val i_Hi = 0
     private const val i_Ho = 1
@@ -77,7 +81,47 @@ object Plyusnina : AbstractOdeFragment<Params>(OdeModel(
     private const val i_fd = 6
     private const val i_pc = 7
 
-    override fun getVertexColor(vertex: Int, dimension: Int, positive: Boolean): Params? {
+    private val executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
+
+    private val vertexCache = Array(dimensions) { dim ->
+        IntArray(encoder.vertexCount) { vertex ->
+            val d = derivation(vertex, dim)
+            if (vertex % 10000 == 0) println("($dim) $vertex / ${encoder.vertexCount}")
+            when {
+                d < 0.0 -> -1
+                d > 0.0 -> 1
+                else -> 0
+            }
+        }
+    }
+
+    /*init {
+        println("Init!")
+        val processors = Runtime.getRuntime().availableProcessors()
+        val blockSize = (encoder.vertexCount / processors) + 1
+        (0 until processors).map { processor -> thread {
+            println("thread started! $processor")
+            var dim = 0
+            while (dim < dimensions) {
+                println("Going $dim! $processor")
+                val cache = vertexCache[dim]
+                var vertex = blockSize * processor
+                while (vertex < (blockSize + 1) * processor && vertex < vertexCache.size) {
+                    if (processor == 0) println("Caching vertices $vertex/$blockSize")
+                    val d = derivation(vertex, dim)
+                    cache[vertex] = when {
+                        d < 0.0 -> -1
+                        d > 0.0 -> 1
+                        else -> 0
+                    }
+                    vertex += 1
+                }
+                dim += 1
+            }
+        } }.map { it.join() }
+    }*/
+
+    private fun derivation(vertex: Int, dimension: Int): Double {
         val derivation = when (dimension) {
             i_Hi -> vertex.eval_Hi()
             i_Ho -> vertex.eval_Ho()
@@ -89,7 +133,12 @@ object Plyusnina : AbstractOdeFragment<Params>(OdeModel(
             i_pc -> vertex.eval_pc()
             else -> error("Unknown dimension $dimension")
         }
-        return if ((positive && derivation > 0.0) || (!positive && derivation < 0.0)) tt else ff
+        return derivation
+    }
+
+    override fun isVertexValid(vertex: Int, dimension: Int, positive: Boolean): Boolean {
+        val cached = vertexCache[dimension][vertex]
+        return (cached > 0 && positive) || (cached < 0 && !positive)
     }
 
     private fun Int.eval_Hi(): Double = V_hi() / Hi()
