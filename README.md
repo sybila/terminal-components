@@ -6,6 +6,8 @@
 
 This module is part of Pithya and enables computation of terminal components (which correspond to attractors in continuous systems).
 
+You can try Pithya online at [pithya.ics.muni.cz](http://pithya.ics.muni.cz).
+
 It can be used as a command line utility with the following options:
 ```
 terminal-components [options...]
