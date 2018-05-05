@@ -12,7 +12,6 @@ import com.github.sybila.huctl.DirectionFormula
 // These are mostly helper functions for working with states/operators:
 
 fun <T: Any> Channel<T>.intersect(left: Operator<T>, right: Operator<T>) = AndOperator(left, right, this)
-fun <T: Any> Channel<T>.union(left: Operator<T>, right: Operator<T>) = OrOperator(left, right, this)
 fun <T: Any> Channel<T>.complement(against: Operator<T>, inner: Operator<T>) = ComplementOperator(against, inner, this)
 
 fun <T: Any> Channel<T>.reachForward(inner: Operator<T>) = ExistsUntilOperator(
@@ -42,6 +41,13 @@ class ExplicitOperator<out Params : Any>(
 fun <T: Any> StateMap<T>.asOperator() = ExplicitOperator(this)
 fun <T: Any> Channel<T>.allParams(map: StateMap<T>) = map.entries().asSequence().fold(ff) { a, b -> a or b.second }
 
-fun <T: Any> Channel<T>.isEmpty(map: StateMap<T>) = map.entries().asSequence().any { it.second.isSat() }
+fun <T: Any> List<Channel<T>>.allParams(map: List<StateMap<T>>): T {
+    return this.zip(map).fold(this.first().ff) { p, (c, map) ->
+        c.run {
+            val inner = map.entries().asSequence().fold(ff) { a, b -> a or b.second }
+            p or inner
+        }
+    }
+}
 
 fun <T: Any> Model<T>.asSingletonChannel() = SingletonChannel(this.asSingletonPartition())

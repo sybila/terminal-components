@@ -7,7 +7,7 @@ import com.github.sybila.ode.model.OdeModel
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 
-internal class LocalAlgorithm<T: Any, S: ExplicitOdeFragment<T, S>>(config: Config, allStates: S, odeModel: OdeModel) : Algorithm<T, S>(config, allStates, odeModel) {
+internal class LocalAlgorithm<T: Any>(config: Config, allStates: ExplicitOdeFragment<T>, odeModel: OdeModel) : Algorithm<T>(config, allStates, odeModel) {
 
     private val count = Count(allStates)
     private val store = ComponentStore(allStates)

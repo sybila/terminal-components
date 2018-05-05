@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package com.github.sybila
 
 import com.github.sybila.checker.StateMap

@@ -42,11 +42,6 @@ data class Config(
         )
         var disableSelfLoops: Boolean = false,
         @field:Option(
-                name = "-r", aliases = ["--result"],
-                usage = "Type of result format. Accepted values: human, json."
-        )
-        var resultType: ResultType = ResultType.HUMAN,
-        @field:Option(
                 name = "--parallelism",
                 usage = "Recommended number of used threads."
         )
