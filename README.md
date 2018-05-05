@@ -1,7 +1,31 @@
 # Terminal Components
-work in progress
 
-// TODO: vytvorit paralelnu verziu
-        // 1, pocitanie worker 1 a worker 2 nezavislo
-        // 2, rozsekat state space a skrz to pocitat fwd a bwd, sync vysledok
-        // 3, verzia kde zistime prinajhorsom dolny odhad
+This module is part of Pithya and enables computation of terminal components (which correspond to attractors in continuous systems).
+
+It can be used as a command line utility with the following options:
+```
+terminal-components [options...]
+ --algorithm-type [LOCAL | DIST] : Specify the type of the algorithm. (default:
+                                   LOCAL)
+ --cut-to-range                  : Thresholds above and below original variable
+                                   range will be discarded. (default: false)
+ --disable-heuristic             : Use to disable the set size state choosing
+                                   heuristic (default: false)
+ --disable-self-loops            : Disable selfloop creation in transition
+                                   system. (default: false)
+ --fast-approximation            : Use faster, but less precise version of
+                                   linear approximation. (default: false)
+ --parallelism N                 : Recommended number of used threads.
+                                   (default: 8)
+ -h (--help)                     : Print help message (default: false)
+ -lo (--log-output) VAL          : Name of stream to which logging info should
+                                   be printed. Filename, stdout, stderr or
+                                   null. (default: stdout)
+ -m (--model) FILE               : Path to the .bio file from which the model
+                                   should be loaded.
+ -ro (--result-output) VAL       : Name of stream to which the results should
+                                   be printed. Filename, stdout, stderr or
+                                   null. (default: stdout)
+```
+
+To build this repo locally, run `./gradlew installDist` in the root folder. Binaries will then appear in `build/install/terminal-components`.
