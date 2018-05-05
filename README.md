@@ -1,3 +1,7 @@
+[![Release](https://jitpack.io/v/sybila/terminal-components.svg)](https://jitpack.io/#sybila/terminal-components)
+[![Build Status](https://travis-ci.org/sybila/terminal-components.svg?branch=master)](https://travis-ci.org/sybila/terminal-components)
+[![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg?style=flat)](https://github.com/sybila/ode-generator/blob/master/LICENSE.txt)
+
 # Terminal Components
 
 This module is part of Pithya and enables computation of terminal components (which correspond to attractors in continuous systems).
