@@ -1,9 +1,0 @@
-VARS: x, y
-
-PARAMS: k1,0,1; k2,0,1
-
-EQ: x = -k1*y*y
-EQ: y = -k2*x*x
-
-THRES: x: 0,1,2,3,4,5
-THRES: y: 0,1,2,3,4,5
