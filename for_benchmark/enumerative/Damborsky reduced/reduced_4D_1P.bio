@@ -6,7 +6,7 @@ VARS: TCP, DCP, ECH, GLY
 #, ATOX 
 CONSTS: k_cat_TCP_DCP,1.05; k_K_DCP,0.751; k_cat_ECH,14.37; Km_TCP,1.79; Km_ECH,0.09; IC_TCP_REC,0.7407; IC_DCP_REC,0.0556; IC_ECH_REC,0.7092; HheC,0.01; EchA,0.01 
 #DhaA,0.01; HheC,0.01; EchA,0.01 
-PARAMS: DhaA,0,0.01 
+PARAMS: DhaA,0,0.1
 #; HheC,0,0.01; EchA,0,0.01 
 
 EQ: TCP = -k_cat_TCP_DCP*DhaA*hillp(TCP,Km_TCP,1,0,1) 
@@ -15,7 +15,7 @@ EQ: ECH = k_K_DCP*HheC*hillp(DCP,1,1,0,1) - k_cat_ECH*EchA*hillp(ECH,Km_ECH,1,0,
 EQ: GLY = k_cat_ECH*EchA*hillp(ECH,Km_ECH,1,0,1) 
 #EQ: ATOX = TCP*IC_TCP_REC + DCP*IC_DCP_REC + ECH*IC_ECH_REC 
 
-VAR_POINTS: TCP:500,5; DCP:500,5; ECH:500,5 
+VAR_POINTS: TCP:500,50; DCP:500,50; ECH:500,50
 
 THRES: TCP:  0, 0.01, 0.5, 1, 1.5, 1.9, 2 
 THRES: DCP:  0, 0.5, 1, 1.5, 2 

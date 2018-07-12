@@ -80,7 +80,7 @@ class LocalAlgorithm(
             // hence if we pre-compute all transitions before actually starting the algorithm,
             // we can safely perform operations in parallel.
             (0 until stateCount).forEach {
-                //if (it % 10000 == 0) println("State computing: $it / $stateCount")
+                if (it % 10000 == 0) println("State computing: $it / $stateCount")
                 it.predecessors(true)
                 it.predecessors(false)
                 it.successors(true)
@@ -93,12 +93,15 @@ class LocalAlgorithm(
             val components = ComponentStore(transitionSystem)
             val counter = Count(transitionSystem)
 
+            val start = System.currentTimeMillis()
             // compute results
             val allStates = TrueOperator(this)
             startAction(allStates, counter, components)
 
             blockWhilePending()
             executor.shutdown()
+
+            println("=========== Evaluation time: ${System.currentTimeMillis() - start} ============")
 
             return components.getComponentMapping(counter)
             /*val result = ArrayList<StateMap<Params>>(counter.size)
@@ -219,6 +222,11 @@ class LocalAlgorithm(
         return max!!
     }
 
-    fun <T: Any> chooseSimple(op: Operator<T>): Pair<Int, T> = op.compute().entries().next()
+    private fun <T: Any> chooseSimple(op: Operator<T>): Pair<Int, T> {
+        val result = op.compute()
+        return result.entries().asSequence().minBy { it.first }!!
+        //val drop = Math.floor(Math.random() * size).toInt().coerceAtMost(size - 2)
+        //return result.entries().asSequence().drop(drop).first()
+    }
 
 }

@@ -25,7 +25,7 @@ internal fun Int.expand(model: OdeModel, encoder: NodeEncoder): State {
     })
 }
 
-internal class ResultSet(
+internal data class ResultSet(
         val variables: List<String>,
         val parameters: List<String>,
         val thresholds: List<List<Double>>,
