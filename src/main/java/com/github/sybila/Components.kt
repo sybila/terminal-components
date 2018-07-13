@@ -120,7 +120,7 @@ class LocalAlgorithm(
     fun <T: Any> Channel<T>.paramRecursionTSCC(op: Operator<T>, counter: Count<T>, components: ComponentStore<T>) {
         var universe = op
         while (!isResultEmpty(universe)) {
-            //println("Universe size: ${universe.compute().entries().asSequence().count()}")
+            println("Universe size: ${universe.compute().entries().asSequence().count()}")
             val (v, vParams) = if (useHeuristics) choose(universe) else chooseSimple(universe)
 
             // limit that restricts the whole state space to parameters associated with v
