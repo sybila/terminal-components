@@ -4,6 +4,18 @@ import com.github.sybila.checker.*
 import com.github.sybila.checker.operator.LazyOperator
 import com.github.sybila.huctl.DirectionFormula
 import java.util.HashSet
+import java.util.concurrent.Executor
+import java.util.concurrent.ExecutorService
+
+interface OnExecutor {
+
+    val executor: ExecutorService
+
+    fun Array<Params>.reachability(timeFlow: Boolean = true) {
+
+    }
+
+}
 
 class ExistsUntilOperator<out Params : Any>(
         timeFlow: Boolean, direction: DirectionFormula, weak: Boolean,

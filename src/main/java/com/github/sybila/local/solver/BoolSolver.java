@@ -1,0 +1,41 @@
+package com.github.sybila.local.solver;
+
+import com.github.sybila.local.Solver;
+import org.jetbrains.annotations.NotNull;
+
+public class BoolSolver implements Solver<Boolean> {
+
+    @NotNull
+    @Override
+    public Boolean getFullSet() {
+        return Boolean.TRUE;
+    }
+
+    @NotNull
+    @Override
+    public Boolean getEmptySet() {
+        return Boolean.FALSE;
+    }
+
+    @NotNull
+    @Override
+    public Boolean intersect(@NotNull Boolean a, @NotNull Boolean b) {
+        if (a && b) return Boolean.TRUE;
+        return Boolean.FALSE;
+    }
+
+    @NotNull
+    @Override
+    public Boolean union(@NotNull Boolean a, @NotNull Boolean b) {
+        if (a || b) return Boolean.TRUE;
+        return Boolean.FALSE;
+    }
+
+    @NotNull
+    @Override
+    public Boolean complement(@NotNull Boolean x, @NotNull Boolean against) {
+        if (against && !x) return Boolean.TRUE;
+        return Boolean.FALSE;
+    }
+
+}
