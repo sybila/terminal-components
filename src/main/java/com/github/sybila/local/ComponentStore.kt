@@ -7,9 +7,11 @@ class ComponentStore<S, T: Any>(
     private val components: MutableMap<S, T> = HashMap()
 
     fun push(component: Map<S, T>, bound: T) {
-        solver.run {
-            for ((k, v) in component.entries) {
-                components[k] = union(components.getOrDefault(k, emptySet), intersect(v, bound))
+        synchronized(this) {
+            solver.run {
+                for ((k, v) in component.entries) {
+                    components[k] = union(components.getOrDefault(k, emptySet), intersect(v, bound))
+                }
             }
         }
     }

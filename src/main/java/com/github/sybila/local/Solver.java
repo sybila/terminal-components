@@ -29,4 +29,8 @@ public interface Solver<T> {
 
     boolean isEmpty(@NotNull final T x);
 
+    double volume(@NotNull final T x);
+
+    String print(@NotNull final T x);
+
 }

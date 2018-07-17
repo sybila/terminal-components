@@ -2,7 +2,7 @@ package com.github.sybila.local
 
 import java.util.ArrayList
 
-class Count<T: Any>(private val solver: Solver<T>) {
+class Count<T>(private val solver: Solver<T>) {
 
     private var data: List<T> = ArrayList<T>().apply {
         this.add(solver.fullSet)

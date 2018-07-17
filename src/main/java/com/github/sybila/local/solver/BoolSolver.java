@@ -48,4 +48,14 @@ public class BoolSolver implements Solver<Boolean> {
         return x;
     }
 
+    @Override
+    public double volume(@NotNull Boolean x) {
+        if (x) return 1.0;
+        return 0.0;
+    }
+
+    @Override
+    public String print(@NotNull Boolean x) {
+        return x.toString();
+    }
 }

@@ -85,42 +85,51 @@ public final class IntervalSolver implements Solver<double[]> {
         if (a.length == 0) return b;
         if (b.length == 0) return a;
         final double[] work = getWorkingArray(a.length + b.length);
-        int iW = 0;
+        int iW = 2;
         int iA = 0;
         int iB = 0;
-        // Variable wL contains the lower bound of currently constructed interval.
-        // Once wL cannot be further extended, it is added to work.
-        double wL = Math.min(a[0], b[0]);
-        // Loop invariant: There is a continuous interval between wL and min(a[iA], b[iB]).
-        while (iA < a.length && iB < b.length) {
-            double aH = a[iA + 1];
-            double bH = b[iB + 1];
-            double rL = Math.max(a[iA], b[iB]);
-            double rH = Math.min(aH, bH);
-            if (rL > rH) {
-                // There is no intersection. We have to end the interval using the smaller upper bound.
-                // The bigger lower bound is the start of a new interval.
-                work[iW] = wL;
-                work[iW + 1] = rH;
-                iW += 2;
-                wL = rL;
-            }
-            // ELSE: The intervals intersect (even in a singular point). We can safely extend the result with
-            // the smaller of the two intervals while preserving the invariant.
-
-            // In any case, we advance the interval with smallest upper bound.
-            if (aH > bH) {
-                iB += 2;
-            } else {
-                iA += 2;
-            }
+        // Insert first lowest interval.
+        if (a[0] < b[0]) {
+            work[0] = a[0];
+            work[1] = a[1];
+            iA += 2;
+        } else {
+            work[0] = b[0];
+            work[1] = b[1];
+            iB += 2;
         }
-        double[] remaining  = iA < a.length ? a : b;
-        int iR              = iA < a.length ? iA : iB;
-        int toCopy          = remaining.length - iR;
-        if (toCopy > 0) {
-            System.arraycopy(remaining, iR, work, iW, toCopy);
-            iW += toCopy;
+        while (iA < a.length || iB < b.length) {
+            //Pick an interval which starts lower:
+            double iL;
+            double iH;
+            if (iA < a.length && iB < b.length) {
+                if (a[iA] < b[iB]) {
+                    iL = a[iA];
+                    iH = a[iA + 1];
+                    iA += 2;
+                } else {
+                    iL = b[iB];
+                    iH = b[iB + 1];
+                    iB += 2;
+                }
+            } else if (iA < a.length) {
+                iL = a[iA];
+                iH = a[iA + 1];
+                iA += 2;
+            } else {
+                iL = b[iB];
+                iH = b[iB + 1];
+                iB += 2;
+            }
+            // Check if we can extend the previous inserted interval, if not, add new interval, otherwise, merge.
+            if (iL <= work[iW - 1] && iH > work[iW - 1]) {
+                work[iW - 1] = iH;
+            }
+            if (iL > work[iW - 1]) {
+                work[iW] = iL;
+                work[iW + 1] = iH;
+                iW += 2;
+            }
         }
         // note that since both A and B are non-empty, iW > 0
         return Arrays.copyOf(work, iW);
@@ -136,7 +145,8 @@ public final class IntervalSolver implements Solver<double[]> {
         double[] xExtended = new double[x.length + 2];
         xExtended[0] = Double.NEGATIVE_INFINITY;
         xExtended[xExtended.length - 1] = Double.POSITIVE_INFINITY;
-        return intersect(x, against);
+        System.arraycopy(x, 0, xExtended, 1, x.length);
+        return intersect(xExtended, against);
     }
 
     @Override
@@ -179,6 +189,21 @@ public final class IntervalSolver implements Solver<double[]> {
     @Override
     public boolean isEmpty(@NotNull final double[] x) {
         return x.length == 0;
+    }
+
+    @Override
+    public double volume(@NotNull double[] x) {
+        if (x.length == 0) return 0.0;
+        double result = 0.0;
+        for (int i=0; i < x.length; i+=2) {
+            result += x[i+1] - x[i];
+        }
+        return result;
+    }
+
+    @Override
+    public String print(@NotNull double[] x) {
+        return Arrays.toString(x);
     }
 
     private double[] getWorkingArray(int size) {

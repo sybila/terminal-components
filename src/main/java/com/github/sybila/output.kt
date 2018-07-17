@@ -121,3 +121,42 @@ internal fun <T: Any> IntervalSolver<T>.exportResults(odeModel: OdeModel, result
             results = resultSet
     )
 }
+
+internal fun exportResults(odeModel: OdeModel, results: Map<String, List<Map<Int, DoubleArray>>>): ResultSet {
+    val encoder = NodeEncoder(odeModel)
+    val states = ArrayList<State>()
+    val parameterValues = ArrayList<JsonRectangleSet>()
+    val stateIndexMap = HashMap<Int, Int>()
+    val parameterIndexMap = HashMap<DoubleArray, Int>()
+    val resultSet = results.map { (formula, stateMaps) ->
+        val data = ArrayList<JsonKeyValue>()
+        stateMaps.forEach { map ->
+            map.entries.forEach { (state, params) ->
+                val stateIndex = stateIndexMap.computeIfAbsent(state) { s ->
+                    states.add(s.expand(odeModel, encoder))
+                    states.size - 1
+                }
+                val paramIndex = parameterIndexMap.computeIfAbsent(params) { p ->
+                    parameterValues.add(p.zip(p.drop(1)).map { arrayOf(doubleArrayOf(it.first, it.second)) }.toTypedArray())
+                    parameterValues.size - 1
+                }
+                data.add(jsonKeyValue(stateIndex, paramIndex))
+            }
+        }
+        Result(
+                formula = formula,
+                data = data
+        )
+    }
+
+    return ResultSet(
+            variables = odeModel.variables.map { it.name },
+            parameters = odeModel.parameters.map { it.name },
+            thresholds = odeModel.variables.map { it.thresholds },
+            parameterBounds = odeModel.parameters.map { doubleArrayOf(it.range.first, it.range.second) },
+            states = states,
+            type = "rectangular",
+            parameterValues = parameterValues,
+            results = resultSet
+    )
+}

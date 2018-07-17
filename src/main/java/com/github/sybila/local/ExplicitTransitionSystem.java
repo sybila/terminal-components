@@ -2,6 +2,7 @@ package com.github.sybila.local;
 
 import kotlin.Pair;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
@@ -28,8 +29,7 @@ public class ExplicitTransitionSystem<S, T> implements TransitionSystem<S, T> {
             @NotNull Map<S, T> states,
             @NotNull Map<Pair<S, S>, T> edges,
             @NotNull Map<S, List<S>> successors,
-            @NotNull Map<S, List<S>> predecessors
-    ) {
+            @NotNull Map<S, List<S>> predecessors) {
         this.solver = solver;
         this.states = states;
         this.edges = edges;
@@ -82,22 +82,31 @@ public class ExplicitTransitionSystem<S, T> implements TransitionSystem<S, T> {
                 }
             }
         }
+        Map<S, List<S>> newSuccessors = restrictTransitions(successors, newEdges, false);
+        Map<S, List<S>> newPredecessors = restrictTransitions(predecessors, newEdges, true);
+
         return new ExplicitTransitionSystem<>(solver, universe, newEdges,
-                restrictTransitions(successors, newEdges),
-                restrictTransitions(predecessors, newEdges)
-        );
+                newSuccessors, newPredecessors);
     }
 
-    private static <S, T> Map<S, List<S>> restrictTransitions(Map<S, List<S>> values, Map<Pair<S, S>, T> edges) {
+    private static <S, T> Map<S, List<S>> restrictTransitions(Map<S, List<S>> values, Map<Pair<S, S>, T> edges, boolean flip) {
         Map<S, List<S>> newValues = new HashMap<>(values.size());
         for (Map.Entry<S, List<S>> entry : values.entrySet()) {
             List<S> updated = new ArrayList<>(entry.getValue().size());
             for (S target : entry.getValue()) {
-                if (edges.containsKey(new Pair<>(entry.getKey(), target))) {
+                Pair<S, S> key;
+                if (flip) {
+                    key = new Pair<>(target, entry.getKey());
+                } else {
+                    key = new Pair<>(entry.getKey(), target);
+                }
+                if (edges.containsKey(key)) {
                     updated.add(target);
                 }
             }
-            newValues.put(entry.getKey(), updated);
+            if (!updated.isEmpty()) {
+                newValues.put(entry.getKey(), updated);
+            }
         }
         return newValues;
     }

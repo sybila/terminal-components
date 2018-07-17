@@ -3,7 +3,7 @@ package com.github.sybila
 import com.github.sybila.ode.generator.rect.Rectangle
 import com.google.gson.Gson
 import java.io.File
-
+/*
 fun main(args: Array<String>) {
     val gson = Gson()
     val data = File("/Users/daemontus/Downloads/clark_Vcell_15_17.json").readText()
@@ -23,3 +23,4 @@ fun main(args: Array<String>) {
 }
 
 private fun normalize(value: Double) = 1/value // Math.log10(value)
+        */

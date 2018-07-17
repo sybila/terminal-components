@@ -16,45 +16,64 @@ public class Algorithm<S, T> {
     @NotNull
     private final ComponentStore<S, T> store;
 
+    @NotNull
+    private final PivotChooser<S, T> pivotChooser;
 
-    public Algorithm(@NotNull Solver<T> solver) {
+    @NotNull
+    private final TransitionSystem<S, T> model;
+
+
+    public Algorithm(@NotNull Solver<T> solver, @NotNull TransitionSystem<S, T> model) {
         this.solver = solver;
+        this.model = model;
         this.count = new Count<>(solver);
         this.store = new ComponentStore<>(solver);
+        this.pivotChooser = new NaivePivotChooser<>(solver);
+    }
+
+    public List<Map<S, T>> execute() {
+        iteration(model, model.getAllStates());
+        return store.getComponentMapping(count);
     }
 
     private void iteration(final TransitionSystem<S, T> ts, final Map<S, T> universe) {
-        Map<S, T> pivot = new HashMap<>(); //TODO
+        System.out.println("Start iteration with universe: "+universe.size());
+        Map<S, T> pivot = pivotChooser.choose(universe);
+        System.out.println("Pivot chosen: "+pivot.size());
+
+        T universeParams = allParams(universe);
 
         Map<S, T> F = reachForward(ts, pivot);
         Map<S, T> B = reachBackward(ts, pivot, F);
         Map<S, T> F_minus_B = complement(B, F);
 
         // The set of parameters where we haven't discovered a component.
-        T continueWith = solver.getEmptySet();
-        for (Map.Entry<S, T> entry : F_minus_B.entrySet()) {
-            continueWith = solver.union(continueWith, entry.getValue());
-        }
+        T continueWith = allParams(F_minus_B);
         if (!solver.isEmpty(continueWith)) {
             startIteration(ts.restrictTo(F_minus_B), F_minus_B);
         }
 
-        T componentFound = solver.complement(continueWith, solver.getFullSet());
+        T componentFound = solver.complement(continueWith, universeParams);
         if (!solver.isEmpty(componentFound)) {
-            count.push(componentFound);
             store.push(F, componentFound);
-        }
-
-        if (!F_minus_B.isEmpty()) {
-            iteration(ts.restrictTo(F_minus_B), F_minus_B);
         }
 
         Map<S, T> BB = reachBackward(ts, F, null);
         Map<S, T> V_minus_BB = complement(BB, universe);
 
-        if (!V_minus_BB.isEmpty()) {
-            iteration(ts.restrictTo(V_minus_BB), V_minus_BB);
+        T newComponents = allParams(V_minus_BB);
+        if (!solver.isEmpty(newComponents)) {
+            count.push(newComponents);
+            startIteration(ts.restrictTo(V_minus_BB), V_minus_BB);
         }
+    }
+
+    private T allParams(Map<S, T> map) {
+        T params = solver.getEmptySet();
+        for (Map.Entry<S, T> entry : map.entrySet()) {
+            params = solver.union(params, entry.getValue());
+        }
+        return params;
     }
 
     private void startIteration(TransitionSystem<S, T> ts, Map<S, T> universe) {
@@ -72,38 +91,6 @@ public class Algorithm<S, T> {
                 T r = solver.complement(minus, all);
                 if (!solver.isEmpty(r)) {
                     result.put(s, r);
-                }
-            }
-        }
-        return result;
-    }
-
-    Map<S, T> intesect(final Map<S, T> a, final Map<S, T> b) {
-        final Map<S, T> result = new HashMap<>();
-        for (S s : a.keySet()) {
-            T A = a.get(s);
-            T B = b.get(s);
-            if (A != null && B != null) {
-                T both = solver.intersect(A, B);
-                if (!solver.isEmpty(both)) {
-                    result.put(s, both);
-                }
-            }
-        }
-        return result;
-    }
-
-    Map<S, T> invert(final TransitionSystem<S, T> ts, final Map<S, T> x) {
-        final Map<S, T> result = new HashMap<>();
-        for (Map.Entry<S, T> entry : ts.getAllStates().entrySet()) {
-            S s = entry.getKey();
-            T current = x.get(s);
-            if (current == null) {
-                result.put(s, entry.getValue());
-            } else {
-                T inverted = solver.complement(current, entry.getValue());
-                if (!solver.isEmpty(inverted)) {
-                    result.put(s, inverted);
                 }
             }
         }
@@ -135,7 +122,7 @@ public class Algorithm<S, T> {
             @Nullable final Map<S, T> path
     ) {
         final Map<S, T> result = new HashMap<>(initial.size());
-        Set<S> recompute =  initReachResult(result, initial);
+        Set<S> recompute = initReachResult(result, initial);
         while (!recompute.isEmpty()) {
             Set<S> recomputeNext = new HashSet<>(recompute.size());
             for (S s : recompute) {
