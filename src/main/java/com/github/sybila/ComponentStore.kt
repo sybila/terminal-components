@@ -11,9 +11,11 @@ class ComponentStore<T: Any>(
     private val components: MutableMap<Int, T> = HashMap()
 
     fun push(component: StateMap<T>, bound: T) {
-        solver.run {
-            for ((k, v) in component.entries()) {
-                components[k] = (components.getOrDefault(k, ff) or (v and bound))
+        synchronized(this) {
+            solver.run {
+                for ((k, v) in component.entries()) {
+                    components[k] = (components.getOrDefault(k, ff) or (v and bound))
+                }
             }
         }
     }

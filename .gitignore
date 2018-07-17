@@ -26,3 +26,5 @@ build/
 *.iws
 
 src/*/gen
+
+out/

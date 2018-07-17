@@ -1,0 +1,12 @@
+					NAIVE	VOLUME	STRUCTURE	STRUCTURE+VOLUME
+Tyson-Novak (1P)
+					8.7s	8.3s	7.9s		2.2s
+G1S (1P)
+					32.7s	36.1s	39.7s		2.4s
+G1S (2P)
+					DNF		DNF		DNF			52.0s
+Repressilator_2 (1P)
+					40.4s	78.9s	144.6s		6.2s
+Repressilator_2 (2P)
+					112.8s	14.8s	40.2s		7.1s
+Repressilator (3P)
