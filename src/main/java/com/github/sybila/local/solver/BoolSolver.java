@@ -38,4 +38,14 @@ public class BoolSolver implements Solver<Boolean> {
         return Boolean.FALSE;
     }
 
+    @Override
+    public boolean encloses(@NotNull Boolean x, @NotNull Boolean subset) {
+        return x;
+    }
+
+    @Override
+    public boolean isEmpty(@NotNull Boolean x) {
+        return x;
+    }
+
 }
