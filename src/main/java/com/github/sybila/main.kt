@@ -92,7 +92,8 @@ fun main(args: Array<String>) {
 private fun <T: Any> AbstractOdeFragment<T>.makeExplicit(
         config: Config
 ): ExplicitOdeFragment<T> {
-    val step = (stateCount / 100).coerceAtLeast(100)
+    val step = (stateCount / 5).coerceAtLeast(100)
+    println("Step: $step")
     val successors = Array(stateCount) { s ->
         if (s % step == 0) config.logStream?.println("Successor progress: $s/$stateCount")
         s.successors(true).asSequence().toList()
