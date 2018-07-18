@@ -1,9 +1,14 @@
 package com.github.sybila.local.solver;
 
+import com.github.sybila.local.Serializer;
 import com.github.sybila.local.Solver;
 import org.jetbrains.annotations.NotNull;
 
-public class BoolSolver implements Solver<Boolean> {
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+
+public class BoolSolver implements Solver<Boolean>, Serializer<Boolean> {
 
     @NotNull
     @Override
@@ -58,4 +63,17 @@ public class BoolSolver implements Solver<Boolean> {
     public String print(@NotNull Boolean x) {
         return x.toString();
     }
+
+    @Override
+    public void write(@NotNull DataOutputStream stream, @NotNull Boolean x) throws IOException {
+        stream.writeByte(x ? 1 : 0);
+    }
+
+    @NotNull
+    @Override
+    public Boolean read(@NotNull DataInputStream stream) throws IOException {
+        byte b = stream.readByte();
+        return b == 1;
+    }
+
 }

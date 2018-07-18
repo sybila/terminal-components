@@ -42,6 +42,7 @@ open class StructurePivotChooser<S, T>(protected val solver: Solver<T>, model: T
     // parameter sets for different predecessor - successor differences
     // [0] - no difference, [1] - one more predecessor than successor, ...
     protected val degreeDifference: Map<S, List<T>> = run {
+        val start = System.currentTimeMillis()
         val result = HashMap<S, List<T>>()
 
         fun MutableList<T>.setOrUnion(index: Int, value: T) {
@@ -73,6 +74,7 @@ open class StructurePivotChooser<S, T>(protected val solver: Solver<T>, model: T
             }
             result[state] = list
         }
+        println("Heuristic cache computation time: ${System.currentTimeMillis() - start}")
 
         result
     }
@@ -100,17 +102,32 @@ open class StructureAndCardinalityPivotChooser<S, T>(solver: Solver<T>, model: T
 
     override fun choose(universe: Map<S, T>): Map<S, T> {
         solver.run {
+            val start = System.currentTimeMillis()
             var uncovered = universe.entries.fold(emptySet) { a, b -> union(a, b.value) }
             val result = HashMap<S, T>()
             while (!isEmpty(uncovered)) {
-                val (s, p) = universe.entries.maxBy { (s, p) ->
-                    (degreeDifference[s]?.indexOfLast { !isEmpty(intersect(it, intersect(p, uncovered))) } ?: -1)
-                }!!
-                val takeWith = intersect(p, uncovered)
-                result[s] = union(intersect(takeWith, uncovered), result[s] ?: emptySet)
-                uncovered = complement(takeWith, uncovered)
+                var max: Pair<S, T>? = null
+                var maxIndex = -1
+                var maxVolume = 0.0
+                for ((s, p) in universe.entries/*.sortedByDescending { degreeDifference[it.key]?.size ?: 0 }*/) {
+                    val degrees = degreeDifference[s] ?: continue
+                    if (degrees.lastIndex < maxIndex) continue
+                    val canCover = intersect(p, uncovered)
+                    for (i in degrees.indices.reversed()) {
+                        if (i < maxIndex) break // if we consider worse item than current max, just skip
+                        val degreeParams = intersect(degrees[i], canCover)
+                        if (!isEmpty(degreeParams) && solver.volume(degreeParams) >= maxVolume) {
+                            max = s to canCover
+                            maxIndex = i
+                            maxVolume = solver.volume(degreeParams)
+                        }
+                    }
+                }
+                val (s, canCover) = max!!
+                result[s] = union(canCover, result[s] ?: emptySet)
+                uncovered = complement(canCover, uncovered)
             }
-            return result
+            return result.also { println("Pivot choose time: ${System.currentTimeMillis() - start}, pivot size: ${it.size}") }
         }
     }
 

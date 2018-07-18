@@ -23,12 +23,12 @@ public class Algorithm<S, T> {
     private final TransitionSystem<S, T> model;
 
 
-    public Algorithm(@NotNull Solver<T> solver, @NotNull TransitionSystem<S, T> model) {
+    public Algorithm(@NotNull Solver<T> solver, @NotNull TransitionSystem<S, T> model, PivotChooser<S, T> pivotChooser) {
         this.solver = solver;
         this.model = model;
         this.count = new Count<>(solver);
         this.store = new ComponentStore<>(solver);
-        this.pivotChooser = new NaivePivotChooser<>(solver);
+        this.pivotChooser = pivotChooser;
     }
 
     public List<Map<S, T>> execute() {
@@ -36,10 +36,14 @@ public class Algorithm<S, T> {
         return store.getComponentMapping(count);
     }
 
+    public int iterationCount = 0;
+
     private void iteration(final TransitionSystem<S, T> ts, final Map<S, T> universe) {
-        System.out.println("Start iteration with universe: "+universe.size());
+        iterationCount += 1;
+        long start = System.currentTimeMillis();
+        //System.out.println("Start iteration with universe: "+universe.size());
         Map<S, T> pivot = pivotChooser.choose(universe);
-        System.out.println("Pivot chosen: "+pivot.size());
+        //System.out.println("Pivot chosen: "+pivot.size());
 
         T universeParams = allParams(universe);
 
@@ -49,9 +53,6 @@ public class Algorithm<S, T> {
 
         // The set of parameters where we haven't discovered a component.
         T continueWith = allParams(F_minus_B);
-        if (!solver.isEmpty(continueWith)) {
-            startIteration(ts.restrictTo(F_minus_B), F_minus_B);
-        }
 
         T componentFound = solver.complement(continueWith, universeParams);
         if (!solver.isEmpty(componentFound)) {
@@ -62,6 +63,13 @@ public class Algorithm<S, T> {
         Map<S, T> V_minus_BB = complement(BB, universe);
 
         T newComponents = allParams(V_minus_BB);
+
+        System.out.println("Iteration time "+(System.currentTimeMillis() - start));
+
+        if (!solver.isEmpty(continueWith)) {
+            startIteration(ts.restrictTo(F_minus_B), F_minus_B);
+        }
+
         if (!solver.isEmpty(newComponents)) {
             count.push(newComponents);
             startIteration(ts.restrictTo(V_minus_BB), V_minus_BB);

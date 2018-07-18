@@ -57,6 +57,7 @@ fun main(args: Array<String>) {
 
         log?.println("Computing transition system...")
 
+        var start = 0L
         val result = odeModel.run {
             val isRectangular = variables.all {
                 it.equation.map { it.paramIndex }.filter { it >= 0 }.toSet().size <= 1
@@ -69,7 +70,10 @@ fun main(args: Array<String>) {
                     RectangleOdeModel(this, !config.disableSelfLoops)
                             .makeExplicit(config).also {
                                 log?.println("Start component analysis...")
-                            }.runAnalysis(odeModel, config)
+                                start = System.currentTimeMillis()
+                            }.runAnalysis(odeModel, config).also {
+                                println("Analysis time: ${System.currentTimeMillis() - start}")
+                            }
                 }
             }
         }
