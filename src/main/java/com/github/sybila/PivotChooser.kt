@@ -100,10 +100,36 @@ open class StructurePivotChooser<T: Any>(model: ExplicitOdeFragment<T>) : PivotC
 
 }
 
-open class StructureAndCardinalityPivotChooser<T: Any>(model: ExplicitOdeFragment<T>) : StructurePivotChooser<T>(model) {
+open class StructureAndCardinalityPivotChooser<T: Any>(private val model: ExplicitOdeFragment<T>) : StructurePivotChooser<T>(model) {
 
-    override fun choose(universe: StateMap<T>): StateMap<T> {
-        var uncovered = universe.entries().asSequence().fold(ff) { a, b -> a or b.second }
+    override fun choose(universe: StateMap<T>): StateMap<T> = model.run {
+        val start = System.currentTimeMillis()
+        var uncovered = universe.entries().asSequence().fold(ff) { a, b -> (a or b.second) }
+        val result = HashStateMap(ff, emptyMap())
+        while (uncovered.isSat()) {
+            var max: Pair<Int, T>? = null
+            var maxIndex = -1
+            //var maxVolume = 0.0
+            for ((s, p) in universe.entries()/*.sortedByDescending { degreeDifference[it.key]?.size ?: 0 }*/) {
+                val degrees = degreeDifference[s]
+                if (degrees.lastIndex <= maxIndex) continue
+                val canCover = (p and uncovered)
+                for (i in degrees.indices.reversed()) {
+                    if (i <= maxIndex) break // if we consider worse item than current max, just skip
+                    val degreeParams = (degrees[i] and canCover)
+                    if (degreeParams.isSat()/* && degreeParams.volume() >= maxVolume*/) {
+                        max = s to canCover
+                        maxIndex = i
+                        //maxVolume = degreeParams.volume()
+                    }
+                }
+            }
+            val (s, canCover) = max!!
+            result[s] = (canCover or result[s])
+            uncovered = (uncovered and canCover.not())
+        }
+        return result.also { println("Pivot choose time: ${System.currentTimeMillis() - start}, pivot size: ${it.sizeHint}, universe size: ${universe.sizeHint}") }
+        /*var uncovered = universe.entries().asSequence().fold(ff) { a, b -> a or b.second }
         val result = HashStateMap(ff, emptyMap())
         while (uncovered.isSat()) {
             val (s, p) = universe.entries().asSequence().maxBy { (s, p) ->
@@ -113,7 +139,7 @@ open class StructureAndCardinalityPivotChooser<T: Any>(model: ExplicitOdeFragmen
             result.setOrUnion(s, takeWith)
             uncovered = uncovered and takeWith.not()
         }
-        return result
+        return result*/
     }
 
 }

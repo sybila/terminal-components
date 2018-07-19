@@ -16,7 +16,7 @@ internal class LocalAlgorithm<T: Any>(config: Config, allStates: ExplicitOdeFrag
     private val pending = ArrayList<Future<*>>()
 
     override fun computeComponents(): ResultSet {
-        startAction(TrueOperator(allStates.asSingletonPartition()).compute())
+        startAction(TrueOperator(allStates.asSingletonPartition()).compute(), false)
         blockWhilePending()
 
         val result = store.getComponentMapping(count).mapIndexed { i, map -> "${i+1} attractor(s)" to listOf(map) }.toMap()
@@ -24,10 +24,11 @@ internal class LocalAlgorithm<T: Any>(config: Config, allStates: ExplicitOdeFrag
         return allStates.exportResults(odeModel, result)
     }
 
-    private fun runAction(universe: StateMap<T>) {
-        allStates.restrictTo(universe).run {
-            val universeSize = universe.entries().asSequence().map { it.second.volume() }.sum()
-            config.logStream?.println("Universe size: $universeSize")
+    private fun runAction(universe: StateMap<T>, restrict: Boolean = true) {
+        println("Run action!")
+        (if (restrict) allStates.restrictTo(universe) else allStates).run {
+            //val universeSize = universe.entries().asSequence().map { it.second.volume() }.sum()
+            //config.logStream?.println("Universe size: $universeSize")
             val channel = this.asSingletonChannel()
             val pivots = pivot.choose(universe).asOperator()
 
@@ -56,10 +57,10 @@ internal class LocalAlgorithm<T: Any>(config: Config, allStates: ExplicitOdeFrag
         }
     }
 
-    private fun startAction(universe: StateMap<T>) {
+    private fun startAction(universe: StateMap<T>, restrict: Boolean = true) {
         synchronized(pending) {
             pending.add(executor.submit {
-                runAction(universe)
+                runAction(universe, restrict)
             })
         }
     }
