@@ -12,7 +12,7 @@ internal class LocalAlgorithm<T: Any>(config: Config, allStates: ExplicitOdeFrag
     private val count = Count(allStates)
     private val store = ComponentStore(allStates)
 
-    private val executor = Executors.newFixedThreadPool(config.parallelism)
+    private val executor = Executors.newCachedThreadPool()
     private val pending = ArrayList<Future<*>>()
 
     override fun computeComponents(): ResultSet {
@@ -33,8 +33,8 @@ internal class LocalAlgorithm<T: Any>(config: Config, allStates: ExplicitOdeFrag
             val pivots = pivot.choose(universe).asOperator()
 
             channel.run {
-                val forward = reachForward(pivots)
-                val backward = intersect(reachBackward(pivots), forward)
+                val forward = reachForward(pivots, executor)
+                val backward = intersect(reachBackward(pivots, executor), forward)
                 val forwardNotBackward = complement(forward, backward).compute()
 
                 val reachableComponentParams = allParams(forwardNotBackward)
@@ -44,7 +44,7 @@ internal class LocalAlgorithm<T: Any>(config: Config, allStates: ExplicitOdeFrag
                     startAction(forwardNotBackward)
                 }
 
-                val backwardFromForward = reachBackward(forward)
+                val backwardFromForward = reachBackward(forward, executor)
                 val cantReachForward = complement(universe.asOperator(), backwardFromForward).compute()
                 val unreachableComponentsParams = allParams(cantReachForward)
 

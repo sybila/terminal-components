@@ -8,24 +8,27 @@ import com.github.sybila.checker.channel.SingletonChannel
 import com.github.sybila.checker.operator.*
 import com.github.sybila.checker.partition.asSingletonPartition
 import com.github.sybila.huctl.DirectionFormula
+import java.util.concurrent.ExecutorService
 
 // These are mostly helper functions for working with states/operators:
 
 fun <T: Any> Channel<T>.intersect(left: Operator<T>, right: Operator<T>) = AndOperator(left, right, this)
 fun <T: Any> Channel<T>.complement(against: Operator<T>, inner: Operator<T>) = ComplementOperator(against, inner, this)
 
-fun <T: Any> Channel<T>.reachForward(inner: Operator<T>) = ExistsUntilOperator(
+fun <T: Any> Channel<T>.reachForward(inner: Operator<T>, executor: ExecutorService) = ExistsUntilOperator(
         timeFlow = false,
         direction = DirectionFormula.Atom.True,
         weak = false, pathOp = null,
-        reach = inner, partition = this
+        reach = inner, partition = this,
+        executor = executor
 )
 
-fun <T: Any> Channel<T>.reachBackward(inner: Operator<T>) = ExistsUntilOperator(
+fun <T: Any> Channel<T>.reachBackward(inner: Operator<T>, executor: ExecutorService) = ExistsUntilOperator(
         timeFlow = true,
         direction = DirectionFormula.Atom.True,
         weak = false, pathOp = null,
-        reach = inner, partition = this
+        reach = inner, partition = this,
+        executor = executor
 )
 
 // operator which does not compute anything, only returns a fixed state map

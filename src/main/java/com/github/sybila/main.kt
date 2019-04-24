@@ -73,6 +73,7 @@ fun main(args: Array<String>) {
                                 start = System.currentTimeMillis()
                             }.runAnalysis(odeModel, config).also {
                                 println("Analysis time: ${System.currentTimeMillis() - start}")
+                                println("Reachability time: ${reachTime.get()} in ${reachCount.get()} ops")
                             }
                 }
             }
@@ -106,7 +107,7 @@ private fun <T: Any> AbstractOdeFragment<T>.makeExplicit(
     val pivotChooser: (ExplicitOdeFragment<T>) -> PivotChooser<T> = if (config.disableHeuristic) {
         { fragment -> NaivePivotChooser(fragment) }
     } else {
-        { fragment -> StructureAndCardinalityPivotChooser(fragment) }
+        { fragment -> StructurePivotChooser(fragment) }
     }
 
     return ExplicitOdeFragment(this.solver, stateCount, pivotChooser, successors, predecessors)

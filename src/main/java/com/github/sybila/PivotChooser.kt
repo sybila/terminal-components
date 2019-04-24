@@ -95,7 +95,7 @@ open class StructurePivotChooser<T: Any>(model: ExplicitOdeFragment<T>) : PivotC
                 result.setOrUnion(s, takeWith)
                 uncovered = uncovered and takeWith.not()
             }
-            return result
+            return result.also { println("pivot size: ${it.sizeHint}, universe size: ${universe.sizeHint}") }
         }
 
 }

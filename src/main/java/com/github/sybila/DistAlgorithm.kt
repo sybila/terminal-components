@@ -38,8 +38,8 @@ internal class DistAlgorithm<T: Any>(config: Config, allStates: ExplicitOdeFragm
 
             val localPivots = channels.runOn { pivots.restrictToPartition().asOperator() }
             val localUniverse = channels.runOn { universe.restrictToPartition().asOperator() }
-            val forward = channels.zip(localPivots).mapRunOn { reachForward(it) }
-            val backward = channels.zip(forward.zip(localPivots)).mapRunOn { (f, p) -> intersect(reachBackward(p), f) }
+            val forward = channels.zip(localPivots).mapRunOn { reachForward(it, executor) }
+            val backward = channels.zip(forward.zip(localPivots)).mapRunOn { (f, p) -> intersect(reachBackward(p, executor), f) }
             val forwardNotBackward = channels.zip(forward.zip(backward)).mapRunOn { (f, b) -> complement(f, b) }.computeAll()
 
             val reachableComponentParams = channels.allParams(forwardNotBackward)
@@ -49,7 +49,7 @@ internal class DistAlgorithm<T: Any>(config: Config, allStates: ExplicitOdeFragm
                 startAction(forwardNotBackward.joinMaps())
             }
 
-            val backwardFromForward = channels.zip(forward).mapRunOn { reachBackward(it) }
+            val backwardFromForward = channels.zip(forward).mapRunOn { reachBackward(it, executor) }
             val cantReachForward = channels.zip(localUniverse.zip(backwardFromForward)).mapRunOn { (u, b) -> complement(u, b) }.computeAll()
 
             val unreachableComponentsParams = channels.allParams(cantReachForward)

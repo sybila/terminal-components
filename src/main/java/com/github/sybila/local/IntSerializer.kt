@@ -21,7 +21,7 @@ fun main(args: Array<String>) {
     val min = 0.0
     val max = 4.0
     val dim = 2
-    val target = 1200000
+    val target = 360000
     val intervals = Math.pow(target.toDouble(), 1.0/dim.toDouble())
     val intervalSize = (max - min) / intervals
     print(min.safeString())
